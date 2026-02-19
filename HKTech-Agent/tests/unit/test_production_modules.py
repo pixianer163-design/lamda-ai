@@ -251,19 +251,16 @@ class TestRSSMWorldModel:
             # 调用预测方法
             predictions = model.predict(market_data, historical_data)
             
-            # 验证返回结构
+            # 验证返回结构 (Task 6 新接口: 返回汇总 dict 而非 per-stock dict)
             assert isinstance(predictions, dict)
-            assert "00700" in predictions
-            
-            prediction = predictions["00700"]
-            assert "predicted_price" in prediction
-            assert "predicted_change_pct" in prediction
-            assert "confidence" in prediction
-            assert "horizon_days" in prediction
+            assert "predicted_return" in predictions
+            assert "confidence" in predictions
+            assert "regime" in predictions
             
             # 验证预测值合理性
-            assert 0 <= prediction["confidence"] <= 1
-            assert prediction["horizon_days"] in [1, 3, 7]
+            assert 0 <= predictions["confidence"] <= 1
+            assert predictions["regime"] in ("bullish", "bearish", "neutral")
+            assert -1.0 <= predictions["predicted_return"] <= 1.0
     
     def test_world_model_disabled(self, temp_log_dir):
         """测试禁用状态"""

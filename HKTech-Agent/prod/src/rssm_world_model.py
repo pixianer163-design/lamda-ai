@@ -39,6 +39,33 @@ except ImportError:
     F = None
     np = None
 
+# ── GRU World Model (replaces complex RSSM) ──────────────────────────────────
+if TORCH_AVAILABLE:
+    import torch.nn as nn
+
+    class GRUWorldModel(nn.Module):
+        """简化 GRU 世界模型：预测未来 5 日收益率"""
+        def __init__(self, input_size=8, hidden_size=64, num_layers=2, dropout=0.2):
+            super().__init__()
+            self.gru = nn.GRU(
+                input_size=input_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                dropout=dropout if num_layers > 1 else 0.0,
+                batch_first=True
+            )
+            self.fc = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            # x: (batch, seq_len, input_size) → (batch, 1)
+            out, _ = self.gru(x)
+            return self.fc(out[:, -1, :])
+else:
+    class GRUWorldModel:
+        """torch 不可用时的占位类"""
+        def __init__(self, *args, **kwargs):
+            pass
+
 # 根据TORCH_AVAILABLE选择导入真实或虚拟实现
 if TORCH_AVAILABLE:
     # 尝试导入真实实现
@@ -141,50 +168,40 @@ if not REAL_MODEL_LOADED:
         def imagine_future(self, initial_obs: list, initial_action: list, horizon=5) -> Dict:
             """虚拟未来预测 (返回与原始模型相同的结构)"""
             # 简单的启发式预测: 基于初始观测中的RSI和价格趋势
-            # initial_obs: [price1, ma5_1, ma20_1, rsi1, change1, price2, ...] 共15维
-            # 提取三只股票的RSI (索引3,8,13) 和价格变化 (索引4,9,14)
             if len(initial_obs) >= 15:
                 rsi_indices = [3, 8, 13]
                 change_indices = [4, 9, 14]
-                avg_rsi = sum(initial_obs[i] * 100 for i in rsi_indices) / 3  # 反归一化 (原值在0-1)
-                avg_change = sum(initial_obs[i] * 10 for i in change_indices) / 3  # 反归一化 (原值在-1到1)
+                avg_rsi = sum(initial_obs[i] * 100 for i in rsi_indices) / 3
+                avg_change = sum(initial_obs[i] * 10 for i in change_indices) / 3
                 
-                # 基于平均RSI和变化预测未来收益
-                # RSI > 60 -> 可能回调 (负收益), RSI < 40 -> 可能反弹 (正收益)
-                # 近期上涨 -> 延续趋势，近期下跌 -> 可能反转
                 base_return = 0.0
                 
                 if avg_rsi > 60:
-                    base_return -= (avg_rsi - 60) * 0.0005  # RSI越高，回调越强
+                    base_return -= (avg_rsi - 60) * 0.0005
                 elif avg_rsi < 40:
-                    base_return += (40 - avg_rsi) * 0.0005  # RSI越低，反弹越强
+                    base_return += (40 - avg_rsi) * 0.0005
                 
-                # 近期变化趋势
-                base_return += avg_change * 0.3  # 近期趋势的部分延续
+                base_return += avg_change * 0.3
                 
-                # 添加随机波动
                 import random
                 random_return = random.uniform(-0.001, 0.001)
                 base_return += random_return
             else:
-                base_return = 0.001  # 默认微小正收益
+                base_return = 0.001
             
-            # 生成轨迹
             trajectory = []
             cumulative_reward = 0.0
             
             for step in range(horizon):
-                # 逐步衰减的收益
                 step_return = base_return * (1.0 - step / (horizon * 1.5))
                 
-                # 添加步长相关的随机波动
                 step_random = random.uniform(-0.0005, 0.0005) * (horizon - step) / horizon
                 step_return += step_random
                 
                 trajectory.append({
                     'step': step,
                     'predicted_reward': step_return,
-                    'action': [0.0, 0.0, 0.0]  # 默认中性动作
+                    'action': [0.0, 0.0, 0.0]
                 })
                 
                 cumulative_reward += step_return
@@ -198,7 +215,7 @@ if not REAL_MODEL_LOADED:
         def load(self) -> bool:
             """虚拟加载方法"""
             print("⚠️  世界模型加载: 虚拟模式 (torch不可用)")
-            return True  # 在虚拟模式下返回True，使系统认为模型已加载
+            return True
         
         def save(self):
             """虚拟保存方法"""
@@ -220,6 +237,16 @@ class RSSMWorldModel:
     """
     高层世界模型包装器
     提供统一接口，内部使用真实或虚拟模型
+
+    predict() 返回格式 (Task 6 接口):
+        {
+            "predicted_return": float,   # 预期收益率 [-1, 1]
+            "confidence": float,         # 置信度 [0, 1]
+            "regime": str,               # "bullish" | "bearish" | "neutral"
+            "source": str,               # 数据来源标识
+        }
+
+    当 self.enabled = False 时返回 {}（向后兼容禁用逻辑）。
     """
     
     def __init__(self, data_dir=None):
@@ -233,7 +260,7 @@ class RSSMWorldModel:
                 import os as _os
                 data_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '../../data')
         self.data_dir = data_dir
-        self.enabled = REAL_MODEL_LOADED or TORCH_AVAILABLE  # 如果真实模型加载或torch可用则启用
+        self.enabled = True  # 始终启用（虚拟或真实）
         
         # 使用共享常量或本地定义
         if SHARED_CONSTANTS_AVAILABLE and constants is not None:
@@ -241,95 +268,126 @@ class RSSMWorldModel:
         else:
             self.stocks = ["00700", "09988", "03690"]
         
-        # 内部使用WorldModelTrainer
-        self.trainer = WorldModelTrainer(data_dir=data_dir)
-        loaded = self.trainer.load()  # 尝试加载模型
+        # 检查是否有真实的 GRU 模型文件
+        self.gru_model_path = os.path.join(data_dir, "gru_world_model.pt")
+        self.gru_model = None
+        self._try_load_gru_model()
         
-        if not loaded:
-            print("⚠️  世界模型未加载，使用虚拟预测")
+        # 内部使用WorldModelTrainer（保留向后兼容）
+        self.trainer = WorldModelTrainer(data_dir=data_dir)
+        self.trainer.load()
+    
+    def _try_load_gru_model(self):
+        """尝试加载 GRU 模型文件"""
+        if TORCH_AVAILABLE and os.path.exists(self.gru_model_path):
+            try:
+                self.gru_model = GRUWorldModel()
+                self.gru_model.load_state_dict(torch.load(self.gru_model_path, map_location="cpu"))
+                self.gru_model.eval()
+                print(f"✅ GRU 世界模型已加载: {self.gru_model_path}")
+            except Exception as e:
+                print(f"⚠️ GRU 模型加载失败: {e}，将使用技术指标 fallback")
+                self.gru_model = None
+        else:
+            self.gru_model = None
     
     def predict(self, market_data: Dict, historical_data: Dict = None) -> Dict:
         """
-        预测未来价格
-        
+        预测市场走势。
+
+        当 self.enabled = False 时返回 {}（向后兼容）。
+
+        如果 GRU 模型文件存在且 torch 可用，使用真实 GRU 模型；
+        否则 fallback 到技术指标规则（确定性，无随机数）。
+
         返回格式:
             {
-                "00700": {
-                    "predicted_price": 390.0,
-                    "predicted_change_pct": 1.5,
-                    "confidence": 0.7,
-                    "horizon_days": 3
-                },
-                ...
+                "predicted_return": float,   # 预期收益率 [-1, 1]
+                "confidence": float,         # 置信度 [0, 1]
+                "regime": str,               # "bullish" | "bearish" | "neutral"
+                "source": str,               # 数据来源标识
             }
         """
         if not self.enabled:
             return {}
-        
-        # 如果使用真实模型，调用真实预测逻辑
-        if REAL_MODEL_LOADED:
-            # 调用真实模型的预测方法
-            # 这里需要根据真实模型的接口调整
-            return self._predict_with_real_model(market_data, historical_data)
+
+        if not market_data:
+            return {}
+
+        if self.gru_model is not None and TORCH_AVAILABLE:
+            return self._predict_with_gru(market_data)
         else:
-            # 使用虚拟预测
-            return self._predict_virtual(market_data, historical_data)
+            return self._predict_technical_fallback(market_data)
+
+    def _predict_technical_fallback(self, market_data: dict) -> dict:
+        """基于技术指标的 fallback 预测（无随机数）"""
+        scores = []
+        for code, data in market_data.items():
+            rsi = data.get("rsi", 50)
+            ma5 = data.get("ma5", data.get("price", 100))
+            ma20 = data.get("ma20", data.get("price", 100))
+
+            if rsi > 70:
+                rsi_signal = -0.03
+            elif rsi < 30:
+                rsi_signal = 0.03
+            else:
+                rsi_signal = (50 - rsi) * 0.0006
+
+            ma_signal = (ma5 - ma20) / ma20 if ma20 > 0 else 0.0
+            scores.append(rsi_signal + ma_signal * 0.5)
+
+        avg_return = sum(scores) / len(scores) if scores else 0.0
+        regime = "bullish" if avg_return > 0.02 else ("bearish" if avg_return < -0.02 else "neutral")
+        return {
+            "predicted_return": round(float(avg_return), 4),
+            "confidence": 0.4,
+            "regime": regime,
+            "source": "technical_fallback"
+        }
+
+    def _predict_with_gru(self, market_data: dict) -> dict:
+        """使用已加载的 GRU 模型进行预测"""
+        features = []
+        for code, data in market_data.items():
+            features.extend([
+                data.get("price", 0) / 500.0,
+                data.get("ma5", 0) / 500.0,
+                data.get("ma20", 0) / 500.0,
+                data.get("rsi", 50) / 100.0,
+                data.get("change_pct", 0) / 10.0,
+                data.get("volume", 0) / 1e8,
+                0.0,
+                0.0,
+            ])
+            break  # 只使用第一个股票
+
+        features = features[:8] + [0.0] * max(0, 8 - len(features))
+
+        x = torch.tensor(features, dtype=torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,8)
+        with torch.no_grad():
+            raw = self.gru_model(x).item()
+
+        predicted_return = max(-1.0, min(1.0, raw))
+        regime = "bullish" if predicted_return > 0.02 else ("bearish" if predicted_return < -0.02 else "neutral")
+        return {
+            "predicted_return": round(float(predicted_return), 4),
+            "confidence": 0.7,
+            "regime": regime,
+            "source": "gru_model"
+        }
     
     def _predict_virtual(self, market_data: Dict, historical_data: Dict = None) -> Dict:
-        """虚拟预测逻辑"""
-        predictions = {}
-        horizon_days = 3  # 默认预测3天
-        
-        for code in self.stocks:
-            if code in market_data:
-                data = market_data[code]
-                price = data.get('price', 0)
-                rsi = data.get('rsi', 50)
-                change_pct = data.get('change_pct', 0)
-                
-                # 简单启发式预测
-                # RSI > 70 -> 可能回调 (负变化), RSI < 30 -> 可能反弹 (正变化)
-                if rsi > 70:
-                    predicted_change = -0.01 * (rsi - 70) / 30  # -1% to 0%
-                elif rsi < 30:
-                    predicted_change = 0.01 * (30 - rsi) / 30  # 0% to +1%
-                else:
-                    predicted_change = change_pct * 0.5 / 100  # 跟随近期变化的一半
-                
-                # 加入一些随机波动
-                import random
-                random_factor = random.uniform(-0.005, 0.005)
-                predicted_change += random_factor
-                
-                predicted_price = price * (1 + predicted_change)
-                confidence = max(0.3, min(0.9, 0.7 - abs(predicted_change) * 10))
-                
-                predictions[code] = {
-                    "predicted_price": round(predicted_price, 2),
-                    "predicted_change_pct": round(predicted_change * 100, 2),
-                    "confidence": round(confidence, 2),
-                    "horizon_days": horizon_days
-                }
-            else:
-                # 缺失数据提供默认预测
-                predictions[code] = {
-                    "predicted_price": 0.0,
-                    "predicted_change_pct": 0.0,
-                    "confidence": 0.0,
-                    "horizon_days": horizon_days
-                }
-        
-        return predictions
+        """虚拟预测逻辑（保留向后兼容，委托给 _predict_technical_fallback）"""
+        return self._predict_technical_fallback(market_data)
     
     def _predict_with_real_model(self, market_data: Dict, historical_data: Dict = None) -> Dict:
         """真实模型预测逻辑 (待实现)"""
-        # 暂时使用虚拟预测，后续可集成真实预测
         print("🧠 真实世界模型预测 (待完全集成)")
-        return self._predict_virtual(market_data, historical_data)
+        return self._predict_technical_fallback(market_data)
     
     def identify_scenarios(self, market_data: Dict) -> List[Dict]:
         """识别市场情景"""
-        # 返回虚拟情景
         return [
             {
                 "name": "平稳市场",
@@ -355,23 +413,17 @@ def test_world_model():
     """测试世界模型"""
     print("🧪 测试世界模型...")
     
-    # 创建模型
     model = RSSMWorldModel()
     
-    # 模拟市场数据
     market_data = {
         "00700": {"price": 385.0, "rsi": 65, "change_pct": 1.5},
         "09988": {"price": 85.0, "rsi": 45, "change_pct": -0.8},
         "03690": {"price": 130.0, "rsi": 70, "change_pct": 2.1}
     }
     
-    # 测试预测
-    predictions = model.predict(market_data)
-    print(f"📊 预测结果:")
-    for code, pred in predictions.items():
-        print(f"  {code}: 价格={pred['predicted_price']}, 变化={pred['predicted_change_pct']}%, 置信度={pred['confidence']}")
+    result = model.predict(market_data)
+    print(f"📊 预测结果: {result}")
     
-    # 测试情景识别
     scenarios = model.identify_scenarios(market_data)
     print(f"🔮 市场情景:")
     for scenario in scenarios:
