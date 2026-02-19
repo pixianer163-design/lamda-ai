@@ -45,7 +45,8 @@ class OSSManager:
         self.access_key_id = None
         self.access_key_secret = None
         self.endpoint = None
-        self.bucket_name = None
+        self.bucket_name = None      # 模型 Bucket
+        self.data_bucket_name = None  # 训练数据 Bucket
         self.local_cache_dir = None
         
         # 尝试从环境变量加载
@@ -63,6 +64,8 @@ class OSSManager:
         self._init_oss_client()
         
         logger.info("✅ OSS 管理器初始化完成")
+        logger.info(f"   模型 Bucket: {self.bucket_name}")
+        logger.info(f"   数据 Bucket: {self.data_bucket_name}")
     
     def _load_from_env(self):
         """从环境变量加载配置"""
@@ -70,6 +73,7 @@ class OSSManager:
         self.access_key_secret = os.getenv('ALIYUN_ACCESS_KEY_SECRET')
         self.endpoint = os.getenv('ALIYUN_OSS_ENDPOINT', 'oss-cn-beijing.aliyuncs.com')
         self.bucket_name = os.getenv('ALIYUN_OSS_BUCKET', 'hktech-agent-models')
+        self.data_bucket_name = os.getenv('ALIYUN_DATA_BUCKET', 'cloud-training')
         self.local_cache_dir = os.getenv('ALIYUN_LOCAL_CACHE_DIR', '/opt/hktech-agent/.oss_cache')
         
         if self.access_key_id:
@@ -96,6 +100,8 @@ class OSSManager:
                         self.endpoint = value
                     elif key == 'oss_bucket':
                         self.bucket_name = value
+                    elif key == 'data_bucket':
+                        self.data_bucket_name = value
                     elif key == 'local_cache_dir':
                         self.local_cache_dir = value
             
@@ -114,19 +120,25 @@ class OSSManager:
         return all(required)
     
     def _init_oss_client(self):
-        """初始化 OSS 客户端"""
+        """初始化 OSS 客户端（双 Bucket）"""
         try:
             import oss2
             
             # 创建认证对象
             self.auth = oss2.Auth(self.access_key_id, self.access_key_secret)
             
-            # 创建 Bucket 对象
+            # 创建模型 Bucket 对象
             self.bucket = oss2.Bucket(self.auth, self.endpoint, self.bucket_name)
             
-            # 测试连接
+            # 创建训练数据 Bucket 对象
+            if self.data_bucket_name:
+                self.data_bucket = oss2.Bucket(self.auth, self.endpoint, self.data_bucket_name)
+            else:
+                self.data_bucket = self.bucket  # 如果没有单独配置，使用同一个
+            
+            # 测试连接（只测试模型 Bucket）
             self.bucket.get_bucket_info()
-            logger.info(f"✅ OSS 连接成功: {self.bucket_name}")
+            logger.info(f"✅ OSS 连接成功")
             
         except ImportError:
             logger.error("❌ 请先安装阿里云 OSS SDK: pip install oss2")
@@ -189,7 +201,7 @@ class OSSManager:
     
     def upload_training_data(self, local_path: str, dataset_name: Optional[str] = None) -> str:
         """
-        上传训练数据到 OSS
+        上传训练数据到 OSS（使用 data_bucket）
         
         Args:
             local_path: 本地数据文件路径
@@ -204,9 +216,11 @@ class OSSManager:
         remote_path = f"training-data/{dataset_name}"
         
         try:
-            self.bucket.put_object_from_file(remote_path, local_path)
-            url = f"https://{self.bucket_name}.{self.endpoint}/{remote_path}"
+            # 使用 data_bucket 上传训练数据
+            self.data_bucket.put_object_from_file(remote_path, local_path)
+            url = f"https://{self.data_bucket_name}.{self.endpoint}/{remote_path}"
             logger.info(f"✅ 训练数据上传成功: {url}")
+            logger.info(f"   Bucket: {self.data_bucket_name}")
             return url
         except Exception as e:
             logger.error(f"❌ 训练数据上传失败: {e}")
@@ -214,7 +228,7 @@ class OSSManager:
     
     def download_training_data(self, dataset_name: str, local_dir: Optional[str] = None) -> str:
         """
-        从 OSS 下载训练数据
+        从 OSS 下载训练数据（使用 data_bucket）
         
         Args:
             dataset_name: 数据集名称
@@ -232,8 +246,10 @@ class OSSManager:
         local_path = os.path.join(local_dir, dataset_name)
         
         try:
-            self.bucket.get_object_to_file(remote_path, local_path)
+            # 使用 data_bucket 下载训练数据
+            self.data_bucket.get_object_to_file(remote_path, local_path)
             logger.info(f"✅ 训练数据下载成功: {local_path}")
+            logger.info(f"   来源 Bucket: {self.data_bucket_name}")
             return local_path
         except Exception as e:
             logger.error(f"❌ 训练数据下载失败: {e}")
@@ -257,10 +273,10 @@ class OSSManager:
             return []
     
     def list_training_data(self) -> list:
-        """列出所有训练数据"""
+        """列出所有训练数据（使用 data_bucket）"""
         try:
             datasets = []
-            for obj in oss2.ObjectIterator(self.bucket, prefix='training-data/'):
+            for obj in oss2.ObjectIterator(self.data_bucket, prefix='training-data/'):
                 if obj.key.endswith('.npy') or obj.key.endswith('.npz'):
                     datasets.append({
                         'name': os.path.basename(obj.key),

@@ -19,12 +19,13 @@
 
 **⚠️ 敏感信息已保护，不在本文档中显示**
 
-| 项目 | 说明 |
-|------|-----|
-| Access Key ID | 见本地配置文件 |
-| Access Key Secret | 见本地配置文件 |
-| Endpoint | `oss-cn-beijing.aliyuncs.com` |
-| Bucket | `hktech-agent-models` |
+| 项目 | 说明 | Bucket |
+|------|-----|--------|
+| Access Key ID | 见本地配置文件 | - |
+| Access Key Secret | 见本地配置文件 | - |
+| Endpoint | `oss-cn-beijing.aliyuncs.com` | - |
+| **模型存储** | 模型文件 (.pt, .pth) | `hktech-agent-models` |
+| **训练数据存储** | 训练数据 (.npy, .npz) | `cloud-training` |
 
 **存储位置**: `/opt/hktech-agent/config/aliyun_oss.conf`（已添加到 `.gitignore`）
 
@@ -48,7 +49,8 @@ source /opt/hktech-agent/scripts/load_aliyun_env.sh
 export ALIYUN_ACCESS_KEY_ID=your_access_key_id
 export ALIYUN_ACCESS_KEY_SECRET=your_access_key_secret
 export ALIYUN_OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com
-export ALIYUN_OSS_BUCKET=hktech-agent-models
+export ALIYUN_OSS_BUCKET=hktech-agent-models        # 模型文件 Bucket
+export ALIYUN_DATA_BUCKET=cloud-training            # 训练数据 Bucket（分离存储）
 ```
 
 ### 3. 使用 OSS 管理器
