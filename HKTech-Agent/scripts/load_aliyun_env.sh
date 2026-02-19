@@ -11,13 +11,17 @@ fi
 
 # 解析配置文件并导出环境变量
 while IFS='=' read -r key value; do
-    # 跳过注释和空行
+    # 跳过注释、空行和节标题
     [[ "$key" =~ ^[[:space:]]*# ]] && continue
+    [[ "$key" =~ ^\[.*\]$ ]] && continue
     [[ -z "$key" ]] && continue
     
     # 去除空格
     key=$(echo "$key" | xargs)
     value=$(echo "$value" | xargs)
+    
+    # 跳过无效的键
+    [[ -z "$key" ]] && continue
     
     # 转换为大写并添加前缀
     env_key="ALIYUN_${key^^}"
