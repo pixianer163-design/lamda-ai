@@ -1,11 +1,7 @@
 """Tests for shared/config.py"""
 import os
-import sys
 from pathlib import Path
 import pytest
-
-# 确保 shared/ 在路径上
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "shared"))
 
 
 def test_get_config_returns_dataclass():
@@ -35,7 +31,9 @@ def test_get_config_data_dir_is_path():
 def test_get_config_default_data_dir_relative_to_project():
     from config import get_config
     cfg = get_config()
-    assert "HKTech-Agent" in str(cfg.data_dir) or cfg.data_dir.exists() or True
+    # default data_dir should be HKTech-Agent/data
+    assert cfg.data_dir.name == "data"
+    assert "HKTech-Agent" in str(cfg.data_dir)
 
 
 def test_get_config_env_override_data_dir(monkeypatch, tmp_path):
