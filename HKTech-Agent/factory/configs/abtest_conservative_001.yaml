@@ -1,0 +1,39 @@
+# A/B测试 - Agent B (保守版)
+agent_id: "abtest_conservative_001"
+name: "B-保守版"
+template: "hktech_conservative"
+market: "HK"
+
+stocks:
+  - code: "00700"
+    name: "腾讯控股"
+    weight: 0.5
+  - code: "09988"
+    name: "阿里巴巴"
+    weight: 0.5
+
+risk_management:
+  position_control:
+    max_single_stock_weight: 0.35
+    max_total_position: 0.60
+    min_cash_ratio: 0.40
+    max_positions: 2
+  stop_loss_take_profit:
+    stop_loss_pct: -0.05
+    take_profit_pct: 0.10
+
+strategy:
+  type: "value"
+  factors:
+    technical: 0.2
+    fundamental: 0.6
+    sentiment: 0.2
+
+llm:
+  model: "deepseek-chat"
+
+schedule:
+  post_market: "16:30"
+
+notification:
+  enabled: false

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>恒生Agent文档中心</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #1f2329;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #3370ff 0%, #85a5ff 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 32px; margin-bottom: 10px; }
+        .header p { font-size: 16px; opacity: 0.9; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        .doc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .doc-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .doc-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        .doc-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        .doc-icon.blue { background: #e8f1ff; }
+        .doc-icon.green { background: #e6f7f0; }
+        .doc-icon.orange { background: #fff3e6; }
+        .doc-icon.purple { background: #f0e6ff; }
+        .doc-icon.red { background: #ffe6e6; }
+        .doc-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2329;
+        }
+        .doc-desc {
+            font-size: 14px;
+            color: #646a73;
+            margin-bottom: 12px;
+        }
+        .doc-meta {
+            font-size: 12px;
+            color: #8f959e;
+            display: flex;
+            gap: 16px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 40px 0 20px;
+            color: #1f2329;
+        }
+        .quick-links {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .quick-links h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+        .link-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .link-item {
+            background: #f2f3f5;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #3370ff;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .link-item:hover {
+            background: #e8f1ff;
+        }
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8f959e;
+            font-size: 14px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .badge.new { background: #e6f7f0; color: #00b96b; }
+        .badge.important { background: #ffe6e6; color: #f54a45; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 恒生Agent文档中心</h1>
+        <p>项目文档、架构设计、使用手册一站式查阅</p>
+    </div>
+    
+    <div class="container">
+        <!-- 快速链接 -->
+        <div class="quick-links">
+            <h2>🔗 快速访问</h2>
+            <div class="link-list">
+                <a href="/" class="link-item">🏠 监控首页</a>
+                <a href="/INVESTOR_PITCH.md" class="link-item">🎯 投资人演讲稿</a>
+                <a href="/ARCHITECTURE_OVERVIEW.md" class="link-item">🏗️ 系统架构</a>
+                <a href="/SYSTEM_CHECK_FINAL.md" class="link-item">✅ 系统检查</a>
+            </div>
+        </div>
+        
+        <!-- 投资人文档 -->
+        <h2 class="section-title">💼 投资人文档</h2>
+        <div class="doc-grid">
+            <a href="INVESTOR_PITCH.md" class="doc-card">
+                <div class="doc-icon orange">🎯</div>
+                <div class="doc-title">投资人演讲稿</div>
+                <div class="doc-desc">完整的路演演讲词，包含15-20分钟的演讲内容和Q&A准备</div>
+                <div class="doc-meta">
+                    <span class="badge important">重要</span>
+                    <span>20分钟阅读</span>
+                </div>
+            </a>
+            
+            <a href="PPT_OUTLINE.md" class="doc-card">
+                <div class="doc-icon orange">📊</div>
+                <div class="doc-title">PPT大纲</div>
+                <div class="doc-desc">15页投资人路演PPT结构，包含每页要点和演讲Tips</div>
+                <div class="doc-meta">
+                    <span class="badge important">重要</span>
+                    <span>15页幻灯片</span>
+                </div>
+            </a>
+        </div>
+        
+        <!-- 架构设计 -->
+        <h2 class="section-title">🏗️ 架构设计</h2>
+        <div class="doc-grid">
+            <a href="ARCHITECTURE_OVERVIEW.md" class="doc-card">
+                <div class="doc-icon blue">🏛️</div>
+                <div class="doc-title">系统架构全景图</div>
+                <div class="doc-desc">四层架构详解：用户交互层、平台服务层、Agent实例层、数据持久化层</div>
+                <div class="doc-meta">
+                    <span class="badge new">推荐</span>
+                    <span>技术架构</span>
+                </div>
+            </a>
+            
+            <a href="FACTORY_ARCHITECTURE.md" class="doc-card">
+                <div class="doc-icon blue">⚙️</div>
+                <div class="doc-title">Agent工厂架构设计</div>
+                <div class="doc-desc">详细的设计文档，包含组件定义、配置管理、模板系统</div>
+                <div class="doc-meta">
+                    <span>详细设计</span>
+                </div>
+            </a>
+            
+            <a href="RESEARCH_AGENT_DESIGN.md" class="doc-card">
+                <div class="doc-icon purple">🔬</div>
+                <div class="doc-title">调研Agent设计草案</div>
+                <div class="doc-desc">下一代Agent设计：财报分析、行业研究、策略建议</div>
+                <div class="doc-meta">
+                    <span>规划中</span>
+                </div>
+            </a>
+        </div>
+        
+        <!-- 实施文档 -->
+        <h2 class="section-title">🔧 实施文档</h2>
+        <div class="doc-grid">
+            <a href="factory/IMPLEMENTATION_REPORT.md" class="doc-card">
+                <div class="doc-icon green">✅</div>
+                <div class="doc-title">Agent工厂实施报告</div>
+                <div class="doc-desc">完整的实施总结，包含已完成的组件和文件清单</div>
+                <div class="doc-meta">
+                    <span>实施完成</span>
+                </div>
+            </a>
+            
+            <a href="factory/AB_TEST_REPORT.md" class="doc-card">
+                <div class="doc-icon green">🔬</div>
+                <div class="doc-title">A/B测试报告</div>
+                <div class="doc-desc">3个Agent的配置对比：基础版、保守版、激进版</div>
+                <div class="doc-meta">
+                    <span>测试就绪</span>
+                </div>
+            </a>
+            
+            <a href="factory/INTEGRATION_CHECK.md" class="doc-card">
+                <div class="doc-icon green">🔍</div>
+                <div class="doc-title">功能集成检查</div>
+                <div class="doc-desc">对比SelfEvolvingAgent和TradingAgent的功能差异</div>
+                <div class="doc-meta">
+                    <span>集成状态</span>
+                </div>
+            </a>
+            
+            <a href="SYSTEM_CHECK_FINAL.md" class="doc-card">
+                <div class="doc-icon green">✓</div>
+                <div class="doc-title">系统最终检查报告</div>
+                <div class="doc-desc">全面的系统状态检查，确认生产就绪</div>
+                <div class="doc-meta">
+                    <span class="badge new">最新</span>
+                </div>
+            </a>
+        </div>
+        
+        <!-- 使用手册 -->
+        <h2 class="section-title">📖 使用手册</h2>
+        <div class="doc-grid">
+            <a href="factory/USER_MANUAL.md" class="doc-card">
+                <div class="doc-icon purple">📘</div>
+                <div class="doc-title">用户手册</div>
+                <div class="doc-desc">快速开始指南：创建Agent、A/B测试、命令行操作</div>
+                <div class="doc-meta">
+                    <span>操作指南</span>
+                </div>
+            </a>
+            
+            <a href="TOMORROW_RUN_READINESS.md" class="doc-card">
+                <div class="doc-icon red">🚀</div>
+                <div class="doc-title">明日运行准备报告</div>
+                <div class="doc-desc">明日9:30自动运行的详细计划和检查清单</div>
+                <div class="doc-meta">
+                    <span class="badge important">明日执行</span>
+                </div>
+            </a>
+        </div>
+        
+        <!-- 开发文档 -->
+        <h2 class="section-title">💻 开发文档</h2>
+        <div class="doc-grid">
+            <a href="docs/CODE_REVIEW_REPORT.md" class="doc-card">
+                <div class="doc-icon blue">🔍</div>
+                <div class="doc-title">代码审查报告</div>
+                <div class="doc-desc">代码质量检查、bug修复记录、测试覆盖率</div>
+                <div class="doc-meta">
+                    <span>代码质量</span>
+                </div>
+            </a>
+            
+            <a href="docs/DATA_COLLECTOR_OPTIMIZATION.md" class="doc-card">
+                <div class="doc-icon blue">📊</div>
+                <div class="doc-title">数据采集优化文档</div>
+                <div class="doc-desc">数据收集器的优化方案和多源备份策略</div>
+                <div class="doc-meta">
+                    <span>技术优化</span>
+                </div>
+            </a>
+            
+            <a href="DAILY_REPORT_20260218.md" class="doc-card">
+                <div class="doc-icon blue">📝</div>
+                <div class="doc-title">开发日报 (2026-02-18)</div>
+                <div class="doc-desc">今日工作总结：完成的功能、代码统计、明日计划</div>
+                <div class="doc-meta">
+                    <span class="badge new">今日</span>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>恒生科技Agent Project | 最后更新: 2026-02-18</p>
+        <p>🌐 监控面板: http://60.205.245.131:8080/</p>
+    </div>
+</body>
+</html>

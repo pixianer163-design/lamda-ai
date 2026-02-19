@@ -1,0 +1,47 @@
+# A/B测试 - Agent C (激进版)
+agent_id: "abtest_aggressive_001"
+name: "C-激进版"
+template: "custom"
+market: "HK"
+
+stocks:
+  - code: "00700"
+    name: "腾讯控股"
+    weight: 0.3
+  - code: "09988"
+    name: "阿里巴巴"
+    weight: 0.3
+  - code: "03690"
+    name: "美团"
+    weight: 0.25
+  - code: "01810"
+    name: "小米集团"
+    weight: 0.15
+
+risk_management:
+  position_control:
+    max_single_stock_weight: 0.50
+    max_total_position: 0.90
+    min_cash_ratio: 0.10
+    max_positions: 4
+  stop_loss_take_profit:
+    stop_loss_pct: -0.12
+    take_profit_pct: 0.25
+
+strategy:
+  type: "momentum"
+  factors:
+    technical: 0.6
+    fundamental: 0.2
+    sentiment: 0.2
+
+llm:
+  model: "deepseek-reasoner"
+
+schedule:
+  pre_market: "09:00"
+  midday: "13:00"
+  post_market: "16:30"
+
+notification:
+  enabled: false

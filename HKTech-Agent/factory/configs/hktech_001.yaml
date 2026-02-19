@@ -1,0 +1,53 @@
+agent_id: "hktech_001"
+name: "恒生基础-001"
+template: "hktech_basic"
+market: "HK"
+
+stocks:
+  - code: "00700"
+    name: "腾讯控股"
+    weight: 0.4
+    stop_loss: 0.08
+    take_profit: 0.15
+  
+  - code: "09988"
+    name: "阿里巴巴"
+    weight: 0.35
+    stop_loss: 0.08
+    take_profit: 0.15
+
+  - code: "03690"
+    name: "美团"
+    weight: 0.25
+    stop_loss: 0.08
+    take_profit: 0.15
+
+risk_management:
+  position_control:
+    max_single_stock_weight: 0.40
+    max_total_position: 0.80
+    min_cash_ratio: 0.20
+    max_positions: 3
+  
+  stop_loss_take_profit:
+    stop_loss_pct: -0.08
+    take_profit_pct: 0.15
+
+strategy:
+  type: "multi_factor"
+  factors:
+    technical: 0.4
+    fundamental: 0.3
+    sentiment: 0.3
+
+llm:
+  model: "deepseek-chat"
+
+schedule:
+  pre_market: "09:00"
+  midday: "12:30"
+  post_market: "16:30"
+
+notification:
+  channel: "feishu"
+  chat_id: "oc_d5f6f6f591bc129e4ae9037b0acdd3a5"

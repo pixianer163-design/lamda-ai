@@ -1,0 +1,42 @@
+# A/B测试 - Agent A (基础版)
+agent_id: "abtest_basic_001"
+name: "A-基础版"
+template: "hktech_basic"
+market: "HK"
+
+stocks:
+  - code: "00700"
+    name: "腾讯控股"
+    weight: 0.33
+  - code: "09988"
+    name: "阿里巴巴"
+    weight: 0.33
+  - code: "03690"
+    name: "美团"
+    weight: 0.34
+
+risk_management:
+  position_control:
+    max_single_stock_weight: 0.40
+    max_total_position: 0.80
+    min_cash_ratio: 0.20
+    max_positions: 3
+  stop_loss_take_profit:
+    stop_loss_pct: -0.08
+    take_profit_pct: 0.15
+
+strategy:
+  type: "multi_factor"
+  factors:
+    technical: 0.4
+    fundamental: 0.3
+    sentiment: 0.3
+
+llm:
+  model: "deepseek-chat"
+
+schedule:
+  post_market: "16:30"
+
+notification:
+  enabled: false
