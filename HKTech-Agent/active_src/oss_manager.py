@@ -27,6 +27,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 阿里云 OSS SDK
+try:
+    import oss2
+except ImportError:
+    oss2 = None
+
 
 class OSSManager:
     """
