@@ -71,7 +71,6 @@ class HKStockDataCollector:
             self.data_dir = data_dir
         else:
             # 默认使用项目相对路径
-            import os
             current_dir = os.path.dirname(os.path.abspath(__file__))
             self.data_dir = os.path.join(current_dir, '../data')
         
@@ -97,9 +96,10 @@ class HKStockDataCollector:
             try:
                 print(f"📊 正在获取 {info['name']}({code}) 的数据...")
                 stock_data = self._get_yahoo_data(code, info, days)
-                if stock_data and stock_data.get('data_source') == 'yahoo_finance':
+                if stock_data:
+                    self._write_cache(code, stock_data)
                     data[code] = stock_data
-                    print(f"✅ {info['name']}: ¥{stock_data['price']} ({stock_data['change_pct']:+.2f}%) [Yahoo]")
+                    print(f"✅ {info['name']}: ¥{stock_data['price']} ({stock_data.get('change_pct', 0):+.2f}%) [Yahoo]")
                     time.sleep(3)  # Yahoo限流更严格
                     continue
             except Exception as e:
@@ -110,13 +110,21 @@ class HKStockDataCollector:
                 print(f"🔄 尝试新浪财经...")
                 stock_data = self._get_sina_data(code, info)
                 if stock_data:
+                    self._write_cache(code, stock_data)
                     data[code] = stock_data
-                    print(f"✅ {info['name']}: ¥{stock_data['price']} ({stock_data['change_pct']:+.2f}%) [Sina]")
+                    print(f"✅ {info['name']}: ¥{stock_data['price']} ({stock_data.get('change_pct', 0):+.2f}%) [Sina]")
                     time.sleep(1)
                     continue
             except Exception as e:
                 print(f"⚠️ 新浪数据源失败: {e}")
             
+            # 尝试3: 磁盘缓存（12h TTL）
+            cached = self._read_cache(code)
+            if cached:
+                data[code] = cached
+                print(f"✅ {info['name']}: ¥{cached['price']} ({cached.get('change_pct', 0):+.2f}%) [Cache]")
+                continue
+
             # 备用: 模拟数据
             print(f"⚠️ 使用备用模拟数据")
             data[code] = self._mock_data(code, info)
@@ -126,7 +134,41 @@ class HKStockDataCollector:
         self._save_data(data)
         
         return data
-    
+
+    def _write_cache(self, code: str, data: dict):
+        """将成功获取的股票数据写入磁盘缓存"""
+        cache_dir = os.path.join(self.data_dir, "cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        today = datetime.now().strftime("%Y%m%d")
+        cache_path = os.path.join(cache_dir, f"{code}_{today}.json")
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump({**data, "_cached_at": datetime.now().isoformat()}, f, ensure_ascii=False)
+        except Exception:
+            pass  # 缓存写失败不影响主流程
+
+    def _read_cache(self, code: str):
+        """读取最新缓存文件（12h TTL），返回 dict 或 None"""
+        from pathlib import Path
+        cache_dir = os.path.join(self.data_dir, "cache")
+        if not os.path.exists(cache_dir):
+            return None
+        files = sorted(Path(cache_dir).glob(f"{code}_*.json"), reverse=True)
+        for cache_file in files[:1]:
+            try:
+                with open(cache_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                cached_at_str = data.get("_cached_at")
+                if cached_at_str:
+                    cached_at = datetime.fromisoformat(cached_at_str)
+                    if datetime.now() - cached_at > timedelta(hours=12):
+                        print(f"⚠️ {code} 缓存已过期（>12h），但仍使用")
+                data["data_source"] = "cache"
+                return data
+            except Exception:
+                continue
+        return None
+
     def _get_yahoo_data(self, code: str, info: dict, days: int) -> Optional[Dict]:
         """从Yahoo Finance获取数据"""
         max_retries = 3
