@@ -29,3 +29,12 @@ Thumbs.db
 .env
 *.key
 *.pem
+
+# 机器学习模型文件（大文件，不推送）
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.onnx
+models/**/*.pt
+models/**/*.pth
