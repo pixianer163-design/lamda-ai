@@ -1,0 +1,29 @@
+# 阿里云 OSS 配置模板
+# 用于存储训练数据和模型文件
+# 
+# ⚠️ 安全警告：复制此文件到 aliyun_oss.conf 并填入真实值
+# 真实的 aliyun_oss.conf 已添加到 .gitignore，不会被提交到 GitHub
+
+[aliyun]
+# Access Key ID (从阿里云控制台获取)
+access_key_id = YOUR_ACCESS_KEY_ID
+
+# Access Key Secret (从阿里云控制台获取)
+access_key_secret = YOUR_ACCESS_KEY_SECRET
+
+# OSS 配置
+# 内网 Endpoint（阿里云 ECS 内网访问，流量免费且更快）
+# 公网 Endpoint: oss-cn-beijing.aliyuncs.com
+# 内网 Endpoint: oss-cn-beijing-internal.aliyuncs.com ⭐ 推荐
+oss_endpoint = oss-cn-beijing-internal.aliyuncs.com
+
+# 模型存储 Bucket
+oss_bucket = hktech-agent-models
+models_prefix = models/
+
+# 训练数据存储 Bucket（单独 Bucket）
+data_bucket = cloud-training
+data_prefix = training-data/
+
+# 本地缓存路径
+local_cache_dir = /opt/hktech-agent/.oss_cache

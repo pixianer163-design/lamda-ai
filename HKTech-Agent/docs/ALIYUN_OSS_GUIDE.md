@@ -23,11 +23,22 @@
 |------|-----|--------|
 | Access Key ID | 见本地配置文件 | - |
 | Access Key Secret | 见本地配置文件 | - |
-| Endpoint | `oss-cn-beijing.aliyuncs.com` | - |
+| **Endpoint** | `oss-cn-beijing-internal.aliyuncs.com` ⭐ | 内网访问 |
 | **模型存储** | 模型文件 (.pt, .pth) | `hktech-agent-models` |
 | **训练数据存储** | 训练数据 (.npy, .npz) | `cloud-training` |
 
 **存储位置**: `/opt/hktech-agent/config/aliyun_oss.conf`（已添加到 `.gitignore`）
+
+### 💡 内网访问说明
+
+**为什么使用内网 Endpoint？**
+- ✅ **流量免费** - 阿里云 ECS 内网访问 OSS 不产生流量费用
+- ✅ **速度更快** - 内网传输延迟更低，带宽更大
+- ✅ **更加安全** - 数据不经过公网，降低被截获风险
+
+**Endpoint 对比**:
+- 公网: `oss-cn-beijing.aliyuncs.com`
+- 内网: `oss-cn-beijing-internal.aliyuncs.com` ⭐ **推荐**
 
 ---
 
@@ -48,7 +59,8 @@ source /opt/hktech-agent/scripts/load_aliyun_env.sh
 # 方法2: 手动导出（从配置文件获取真实值）
 export ALIYUN_ACCESS_KEY_ID=your_access_key_id
 export ALIYUN_ACCESS_KEY_SECRET=your_access_key_secret
-export ALIYUN_OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com
+# ⚠️ 在阿里云 ECS 上使用内网 Endpoint，流量免费且更快
+export ALIYUN_OSS_ENDPOINT=oss-cn-beijing-internal.aliyuncs.com
 export ALIYUN_OSS_BUCKET=hktech-agent-models        # 模型文件 Bucket
 export ALIYUN_DATA_BUCKET=cloud-training            # 训练数据 Bucket（分离存储）
 ```
