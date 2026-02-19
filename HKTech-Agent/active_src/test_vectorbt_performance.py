@@ -4,7 +4,8 @@ VectorBT vs 现有回测模块 性能对比测试
 
 import time
 import sys
-sys.path.insert(0, '/opt/hktech-agent/active_src')
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pandas as pd
 import numpy as np
@@ -254,7 +255,7 @@ def generate_report(vbt_results, existing_results):
         print("⚠️  性能提升有限，根据具体场景选择")
     
     # 保存报告
-    report_path = '/opt/hktech-agent/data/vectorbt_performance_report.txt'
+    report_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../data/vectorbt_performance_report.txt')
     with open(report_path, 'w') as f:
         f.write("VectorBT 性能测试报告\n")
         f.write("="*70 + "\n\n")

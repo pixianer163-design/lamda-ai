@@ -9,7 +9,16 @@ import os
 import sys
 
 # 添加项目路径
-sys.path.insert(0, '/opt/hktech-agent/prod/src')
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '.'))
+
+# 导入共享常量
+SHARED_CONSTANTS_AVAILABLE = False
+constants = None  # 默认值
+try:
+    import constants
+    SHARED_CONSTANTS_AVAILABLE = True
+except ImportError:
+    print("⚠️ 共享常量模块不可用，使用本地定义")
 
 def handle_card_click(event_data):
     """处理卡片按钮点击"""
@@ -54,7 +63,8 @@ def handle_message(event_data):
 def get_portfolio_info():
     """获取持仓信息"""
     try:
-        with open('/opt/hktech-agent/data/portfolio.json', 'r') as f:
+        _data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../data')
+        with open(os.path.join(_data_dir, 'portfolio.json'), 'r') as f:
             portfolio = json.load(f)
         
         cash = portfolio.get('cash', 0)
@@ -81,7 +91,11 @@ def get_market_info():
 
 def create_detail_card(stock_code):
     """创建详情卡片"""
-    stock_names = {'00700': '腾讯控股', '09988': '阿里巴巴', '03690': '美团-W'}
+    # 使用共享常量或本地定义
+    if SHARED_CONSTANTS_AVAILABLE and constants is not None:
+        stock_names = constants.STOCK_NAMES
+    else:
+        stock_names = {'00700': '腾讯控股', '09988': '阿里巴巴', '03690': '美团-W'}
     name = stock_names.get(stock_code, stock_code)
     
     return {

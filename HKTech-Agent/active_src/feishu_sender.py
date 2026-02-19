@@ -6,14 +6,17 @@
 """
 
 import json
+import os
 import requests
 from typing import Optional
 
 class FeishuSender:
     """飞书消息发送器"""
     
-    def __init__(self, config_path: str = "/opt/hktech-agent/config/feishu_config.json"):
+    def __init__(self, config_path: str = None):
         """初始化，加载配置"""
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../local_config/feishu_config.json')
         with open(config_path, 'r') as f:
             self.config = json.load(f)
         

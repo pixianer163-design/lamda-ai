@@ -5,12 +5,34 @@
 """
 
 import sys
-sys.path.insert(0, '/opt/hktech-agent/src')
 
 import json
 import os
 from datetime import datetime
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    print("⚠️  numpy未安装，使用替代方案")
+    NUMPY_AVAILABLE = False
+    # 创建虚拟np模块
+    class MockNumpy:
+        @staticmethod
+        def array(data, dtype=None):
+            return data
+        @staticmethod  
+        def float32():
+            return float
+    np = MockNumpy()
+
+# 导入共享常量
+SHARED_CONSTANTS_AVAILABLE = False
+constants = None  # 默认值
+try:
+    import constants
+    SHARED_CONSTANTS_AVAILABLE = True
+except ImportError:
+    print("⚠️ 共享常量模块不可用，使用本地定义")
 
 # 导入世界模型
 try:
@@ -27,13 +49,22 @@ class WorldModelIntegration:
     为Agent提供预测和决策支持
     """
     
-    def __init__(self, data_dir="/opt/hktech-agent/data"):
+    def __init__(self, data_dir=None):
+        import os
+        if data_dir is None:
+            # 默认使用项目相对路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            data_dir = os.path.join(current_dir, '../../data')
+            print(f"📂 世界模型数据目录: {data_dir}")
+        
         self.data_dir = data_dir
         self.enabled = WORLD_MODEL_AVAILABLE
         
         if self.enabled:
             try:
-                self.trainer = WorldModelTrainer(device="cpu")
+                self.trainer = WorldModelTrainer(data_dir=self.data_dir, device="cpu")
+                print(f"📂 训练器模型路径: {self.trainer.model_path}")
+                print(f"📂 路径存在: {os.path.exists(self.trainer.model_path)}")
                 self.loaded = self.trainer.load()
                 if self.loaded:
                     print("✅ 世界模型集成: 已加载")
@@ -46,7 +77,7 @@ class WorldModelIntegration:
         else:
             self.loaded = False
     
-    def prepare_observation(self, market_data: dict, portfolio: dict) -> np.ndarray:
+    def prepare_observation(self, market_data: dict, portfolio: dict) -> list:
         """
         准备观测向量 (15维)
         
@@ -55,7 +86,13 @@ class WorldModelIntegration:
         """
         obs = []
         
-        for code in ['00700', '09988', '03690']:
+        # 使用共享常量或本地定义
+        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
+            stock_codes = constants.DEFAULT_STOCKS
+        else:
+            stock_codes = ['00700', '09988', '03690']
+        
+        for code in stock_codes:
             if code in market_data:
                 data = market_data[code]
                 obs.extend([
@@ -69,7 +106,7 @@ class WorldModelIntegration:
                 # 缺失数据用默认值
                 obs.extend([0, 0, 0, 0.5, 0])
         
-        return np.array(obs, dtype=np.float32)
+        return obs
     
     def predict_future(self, market_data: dict, portfolio: dict, 
                        proposed_action: list = None, horizon: int = 3) -> dict:
@@ -121,7 +158,11 @@ class WorldModelIntegration:
             
             # 简单置信度（基于预测一致性）
             if len(returns) > 1:
-                consistency = 1 - abs(np.std(returns) / (abs(np.mean(returns)) + 0.001))
+                # 手动计算标准差和平均值（避免numpy依赖）
+                mean_val = sum(returns) / len(returns)
+                variance = sum((x - mean_val) ** 2 for x in returns) / len(returns)
+                std_val = variance ** 0.5
+                consistency = 1 - abs(std_val / (abs(mean_val) + 0.001))
                 confidence = max(0.3, min(0.9, consistency))
             else:
                 confidence = 0.5

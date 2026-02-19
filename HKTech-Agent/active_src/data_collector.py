@@ -4,12 +4,35 @@
 免费、稳定、延迟15分钟（模拟交易足够）
 """
 
-import yfinance as yf
-import pandas as pd
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    yf = None
+    YFINANCE_AVAILABLE = False
+    print("⚠️ yfinance未安装，使用替代数据源")
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None
+    PANDAS_AVAILABLE = False
+    print("⚠️ pandas未安装，使用简化数据处理")
 import json
+import sys
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 import os
+
+# 导入共享常量
+SHARED_CONSTANTS_AVAILABLE = False
+constants = None  # 默认值
+try:
+    import constants
+    SHARED_CONSTANTS_AVAILABLE = True
+except ImportError:
+    print("⚠️ 共享常量模块不可用，使用本地定义")
 import time
 import random
 import requests
@@ -20,14 +43,38 @@ from urllib.parse import urlencode
 class HKStockDataCollector:
     """港股数据采集器 - 多源备份版本"""
     
-    def __init__(self):
+    def __init__(self, data_dir=None):
         """初始化采集器"""
-        self.stocks = {
-            "00700": {"name": "腾讯控股", "yf_symbol": "0700.HK", "sector": "互联网", "sina_symbol": "hk00700"},
-            "09988": {"name": "阿里巴巴", "yf_symbol": "9988.HK", "sector": "电商", "sina_symbol": "hk09988"},
-            "03690": {"name": "美团", "yf_symbol": "3690.HK", "sector": "本地生活", "sina_symbol": "hk03690"}
-        }
-        self.data_dir = "/opt/hktech-agent/data"
+        # 股票信息（使用共享常量或本地定义）
+        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
+            # 从共享常量获取股票信息
+            self.stocks = {}
+            for code, info in constants.STOCKS.items():
+                self.stocks[code] = {
+                    "name": info.get("name", code),
+                    "yf_symbol": info.get("yf_symbol", f"{code[:4]}.HK"),
+                    "sector": info.get("sector", "未知"),
+                    "sina_symbol": info.get("sina_symbol", f"hk{code}")
+                }
+            # 限制为默认股票（如果需要）
+            # 保持原有行为：只使用三只核心股票
+            default_codes = constants.DEFAULT_STOCKS
+            self.stocks = {code: self.stocks.get(code) for code in default_codes if code in self.stocks}
+        else:
+            self.stocks = {
+                "00700": {"name": "腾讯控股", "yf_symbol": "0700.HK", "sector": "互联网", "sina_symbol": "hk00700"},
+                "09988": {"name": "阿里巴巴", "yf_symbol": "9988.HK", "sector": "电商", "sina_symbol": "hk09988"},
+                "03690": {"name": "美团", "yf_symbol": "3690.HK", "sector": "本地生活", "sina_symbol": "hk03690"}
+            }
+        # 设置数据目录
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            # 默认使用项目相对路径
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            self.data_dir = os.path.join(current_dir, '../data')
+        
         os.makedirs(self.data_dir, exist_ok=True)
         
         # 配置请求session（带重试）
