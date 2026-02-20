@@ -108,83 +108,51 @@ class WorldModelIntegration:
         
         return obs
     
-    def predict_future(self, market_data: dict, portfolio: dict, 
-                       proposed_action: list = None, horizon: int = 3) -> dict:
-        """
-        预测未来走势
-        
-        返回:
-            {
-                'enabled': True/False,
-                'horizon': 预测天数,
-                'predicted_returns': [day1_return, day2_return, ...],
-                'cumulative_return': 累计收益,
-                'confidence': 置信度,
-                'recommendation': '买入'/'卖出'/'持有',
-                'reasoning': '解释'
-            }
-        """
-        if not self.enabled or not self.loaded:
-            return {
-                'enabled': False,
-                'message': '世界模型未启用'
-            }
-        
-        # 准备观测
-        obs = self.prepare_observation(market_data, portfolio)
-        
-        # 默认动作: 维持当前仓位
-        if proposed_action is None:
-            proposed_action = [0.0, 0.0, 0.0]
-        
+    def predict_future(self, market_data: dict, portfolio: dict,
+                       proposed_action=None, horizon: int = 3) -> dict:
+        """使用世界模型预测未来收益"""
+        disabled_result = {
+            "enabled": False,
+            "horizon": horizon,
+            "predicted_returns": {},
+            "cumulative_return": 0.0,
+            "confidence": 0.0,
+            "recommendation": "hold",
+            "reasoning": "世界模型未加载，使用保守策略",
+            "actions": [],
+        }
+
+        if not self.enabled:
+            return disabled_result
+
         try:
-            # 想象未来
-            prediction = self.trainer.imagine_future(obs, proposed_action, horizon=horizon)
-            
-            # 解析结果
-            returns = [step['predicted_reward'] for step in prediction['trajectory']]
-            cumulative = prediction['cumulative_reward']
-            
-            # 生成建议
-            if cumulative > 0.01:
-                recommendation = '加仓'
-                reasoning = f'模型预测未来{horizon}天累计收益{cumulative:.2f}%，趋势向好'
-            elif cumulative < -0.01:
-                recommendation = '减仓'
-                reasoning = f'模型预测未来{horizon}天累计收益{cumulative:.2f}%，建议避险'
+            result = self.trainer.predict(market_data, portfolio)
+            predicted_return = float(result.get("predicted_return", 0.0))
+            confidence = float(result.get("confidence", 0.4))
+            regime = result.get("regime", "neutral")
+
+            if predicted_return > 0.03 and confidence > 0.6:
+                recommendation = "buy"
+            elif predicted_return < -0.03 and confidence > 0.6:
+                recommendation = "sell"
             else:
-                recommendation = '持有'
-                reasoning = f'模型预测未来{horizon}天收益{cumulative:.2f}%，趋势不明朗'
-            
-            # 简单置信度（基于预测一致性）
-            if len(returns) > 1:
-                # 手动计算标准差和平均值（避免numpy依赖）
-                mean_val = sum(returns) / len(returns)
-                variance = sum((x - mean_val) ** 2 for x in returns) / len(returns)
-                std_val = variance ** 0.5
-                consistency = 1 - abs(std_val / (abs(mean_val) + 0.001))
-                confidence = max(0.3, min(0.9, consistency))
-            else:
-                confidence = 0.5
-            
+                recommendation = "hold"
+
             return {
-                'enabled': True,
-                'horizon': horizon,
-                'predicted_returns': returns,
-                'cumulative_return': cumulative,
-                'confidence': round(confidence, 2),
-                'recommendation': recommendation,
-                'reasoning': reasoning,
-                'actions': [step['action'] for step in prediction['trajectory']]
+                "enabled": True,
+                "horizon": horizon,
+                "predicted_returns": {code: predicted_return for code in market_data},
+                "cumulative_return": round(predicted_return * horizon, 4),
+                "confidence": round(confidence, 4),
+                "recommendation": recommendation,
+                "reasoning": f"GRU预测{horizon}日收益: {predicted_return:.2%}（{regime}市场）",
+                "actions": [recommendation] * horizon,
             }
-            
         except Exception as e:
-            return {
-                'enabled': True,
-                'error': str(e),
-                'message': '预测过程中出错'
-            }
-    
+            print(f"⚠️ 世界模型预测失败: {e}")
+            disabled_result["reasoning"] = f"预测失败: {e}"
+            return disabled_result
+
     def enhance_decision_prompt(self, base_prompt: str, market_data: dict, 
                                 portfolio: dict) -> str:
         """
