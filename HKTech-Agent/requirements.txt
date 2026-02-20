@@ -30,4 +30,7 @@ mypy_extensions>=1.0.0
 dateparser>=1.0.0
 imageio>=2.30.0
 
+# 阿里云OSS存储 - 用于模型和训练数据云端备份
+oss2>=2.18.0
+
 # 注意: VectorBT需要pandas<3.0，因此我们固定pandas版本为2.x
