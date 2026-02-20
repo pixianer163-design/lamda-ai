@@ -196,6 +196,60 @@ def train_gru_model(X: np.ndarray, y: np.ndarray, data_dir: str,
     return model_path
 
 
+def _upload_to_oss_after_training(data_dir: str, model_path: str) -> None:
+    """训练完成后将模型和训练数据上传到阿里云OSS。oss2未安装时静默跳过。"""
+    import sys as _sys
+
+    # AccessKey.csv 在项目根目录 (lamda-ai/)，本文件在 prod/src/ 下，向上三级
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.normpath(os.path.join(_script_dir, "../../../AccessKey.csv"))
+
+    # 导入 OSSManager（在 active_src/）
+    _active_src = os.path.normpath(os.path.join(_script_dir, "../../active_src"))
+    if _active_src not in _sys.path:
+        _sys.path.insert(0, _active_src)
+
+    try:
+        from oss_manager import OSSManager
+    except ImportError:
+        print("⚠️  oss_manager 未找到，跳过OSS上传")
+        return
+
+    try:
+        oss = OSSManager(csv_path=csv_path)
+    except ImportError:
+        print("⚠️  oss2 未安装，跳过OSS上传。运行: pip install oss2")
+        return
+    except ValueError as e:
+        print(f"⚠️  OSS配置不完整，跳过上传: {e}")
+        return
+    except Exception as e:
+        print(f"⚠️  OSS初始化失败，跳过上传: {e}")
+        return
+
+    # 上传模型文件
+    models_dir = os.path.join(data_dir, "models")
+    for fname in ("rssm_model.pt", "scaler.pkl"):
+        fpath = os.path.join(models_dir, fname)
+        if os.path.exists(fpath):
+            try:
+                oss.upload_model(fpath, fname)
+            except Exception as e:
+                print(f"⚠️  上传 {fname} 失败: {e}")
+        else:
+            print(f"⚠️  文件不存在，跳过: {fpath}")
+
+    # 上传训练数据
+    episodes_path = os.path.join(data_dir, "training_episodes.json")
+    if os.path.exists(episodes_path):
+        try:
+            oss.upload_training_data(episodes_path, "training_episodes.json")
+        except Exception as e:
+            print(f"⚠️  上传 training_episodes.json 失败: {e}")
+
+    print("✅ OSS上传流程完成")
+
+
 def main():
     data_dir = str(get_data_dir())
     print("📥 拉取历史数据（2018-至今）...")
@@ -214,6 +268,10 @@ def main():
 
     print("🚀 开始训练 GRU 世界模型...")
     model_path = train_gru_model(X, y, data_dir)
+
+    # 训练成功后自动上传到OSS
+    if model_path:
+        _upload_to_oss_after_training(data_dir, model_path)
 
     if model_path:
         print(f"✅ 训练完成！模型: {model_path}")
