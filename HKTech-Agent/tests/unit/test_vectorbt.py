@@ -55,15 +55,21 @@ class TestVectorBTBacktester:
         assert "sharpe_ratio" in result
 
     def test_graceful_when_vectorbt_unavailable(self, monkeypatch):
-        """vectorbt 不可用时不应抛出 ImportError"""
+        """vectorbt 不可用时 run_backtest_from_signals 应返回 error dict，不抛出异常"""
         import sys
         # Simulate missing vectorbt
         monkeypatch.setitem(sys.modules, "vectorbt", None)
         if "vectorbt_integration" in sys.modules:
             del sys.modules["vectorbt_integration"]
-        from vectorbt_integration import VectorBTBacktester
+        from vectorbt_integration import VectorBTBacktester, VBT_AVAILABLE
+        assert VBT_AVAILABLE is False
+
         bt = VectorBTBacktester()
-        assert bt is not None
+        price = make_price_series()
+        signals = pd.Series(0, index=price.index)
+        result = bt.run_backtest_from_signals(price, signals)
+        assert isinstance(result, dict)
+        assert "error" in result
 
     def test_get_metrics_returns_empty_when_no_portfolio(self):
         """没有 portfolio 时 get_metrics() 应返回空 dict"""

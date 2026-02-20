@@ -188,7 +188,7 @@ class VectorBTBacktester:
             init_cash=self.initial_cash,
             fees=self.fees,
             slippage=slippage,
-            freq='1d'  # 日频
+            freq='1D'  # 日频
         )
         
         return self.portfolio
@@ -208,7 +208,8 @@ class VectorBTBacktester:
                 except Exception:
                     pass
                 try:
-                    avg_win = float(trades.pnl.mean())
+                    win_records = trades.records[trades.records['pnl'] > 0]
+                    avg_win = float(win_records['pnl'].mean()) if len(win_records) > 0 else 0.0
                 except Exception:
                     pass
             return {
@@ -223,7 +224,8 @@ class VectorBTBacktester:
             print(f"⚠️ get_metrics 失败: {e}")
             return {}
 
-    def run_backtest_from_signals(self, price: pd.Series, signals: pd.Series) -> dict:
+    def run_backtest_from_signals(self, price: pd.Series, signals: pd.Series,
+                                  slippage: float = 0.001) -> dict:
         """
         使用信号序列运行回测
         signals: pd.Series, 1=买入, -1=卖出, 0=持有
@@ -237,7 +239,7 @@ class VectorBTBacktester:
             self.portfolio = vbt.Portfolio.from_signals(
                 price, entries, exits,
                 fees=self.fees,
-                slippage=0.001,
+                slippage=slippage,
                 freq="1D",
                 init_cash=self.initial_cash,
             )
