@@ -41,7 +41,7 @@ class OSSManager:
     自动从环境变量或配置文件读取凭证
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, csv_path: Optional[str] = None):
         """
         初始化 OSS 管理器
         
@@ -57,8 +57,12 @@ class OSSManager:
         
         # 尝试从环境变量加载
         self._load_from_env()
-        
-        # 如果环境变量不存在，尝试从配置文件加载
+
+        # 如果环境变量不存在，尝试从CSV文件加载（优先级高于config_path）
+        if not self.access_key_id and csv_path:
+            self._load_from_csv(csv_path)
+
+        # 如果以上都没有，尝试从配置文件加载
         if not self.access_key_id and config_path:
             self._load_from_config(config_path)
         
@@ -114,7 +118,27 @@ class OSSManager:
             logger.info(f"✅ 从配置文件加载 OSS 配置: {config_path}")
         except Exception as e:
             logger.error(f"❌ 读取配置文件失败: {e}")
-    
+
+    def _load_from_csv(self, csv_path: str):
+        """从 AccessKey.csv 加载凭证（格式: 'AccessKey ID,AccessKey Secret' header）"""
+        import csv as _csv
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = _csv.DictReader(f)
+                for row in reader:
+                    key_id = row.get('AccessKey ID', '').strip()
+                    key_secret = row.get('AccessKey Secret', '').strip()
+                    if key_id and key_secret:
+                        self.access_key_id = key_id
+                        self.access_key_secret = key_secret
+                        logger.info(f"✅ 从CSV文件加载OSS凭证: {csv_path}")
+                        return
+            logger.warning(f"⚠️ CSV文件中未找到有效凭证: {csv_path}")
+        except FileNotFoundError:
+            logger.warning(f"⚠️ AccessKey CSV文件不存在: {csv_path}")
+        except Exception as e:
+            logger.error(f"❌ 读取CSV凭证失败: {e}")
+
     def _validate_config(self) -> bool:
         """验证配置是否完整"""
         required = [
