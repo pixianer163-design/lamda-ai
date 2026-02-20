@@ -18,8 +18,10 @@ import argparse
 from datetime import datetime, timedelta
 
 # 添加项目路径
-sys.path.insert(0, '/opt/hktech-agent/prod/src')
-sys.path.insert(0, '/opt/hktech-agent/active_src')
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, 'prod', 'src'))
+sys.path.insert(0, _SCRIPT_DIR)
 
 try:
     from rssm_world_model import RSSM, ActorCritic, WorldModelTrainer
@@ -38,7 +40,8 @@ class WorldModelTester:
         self.test_results = []
         
         # 创建测试数据目录
-        self.test_data_dir = "/opt/hktech-agent/test_data"
+        self.test_data_dir = os.path.join(
+            os.path.expanduser('~'), '.hktech_agent', 'test_data')
         os.makedirs(self.test_data_dir, exist_ok=True)
         
     def log(self, msg):

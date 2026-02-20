@@ -17,6 +17,7 @@
     oss.upload_training_data('episodes_2024_01.npy')
 """
 
+import csv
 import os
 import sys
 from pathlib import Path
@@ -47,6 +48,7 @@ class OSSManager:
         
         Args:
             config_path: 配置文件路径，默认从环境变量读取
+            csv_path: AccessKey.csv 路径，格式为 'AccessKey ID,AccessKey Secret' 列头，优先级低于环境变量
         """
         self.access_key_id = None
         self.access_key_secret = None
@@ -84,7 +86,8 @@ class OSSManager:
         self.endpoint = os.getenv('ALIYUN_OSS_ENDPOINT', 'oss-cn-beijing.aliyuncs.com')
         self.bucket_name = os.getenv('ALIYUN_OSS_BUCKET', 'hktech-agent-models')
         self.data_bucket_name = os.getenv('ALIYUN_DATA_BUCKET', 'cloud-training')
-        self.local_cache_dir = os.getenv('ALIYUN_LOCAL_CACHE_DIR', '/opt/hktech-agent/.oss_cache')
+        self.local_cache_dir = os.getenv('ALIYUN_LOCAL_CACHE_DIR',
+            os.path.join(os.path.expanduser('~'), '.hktech_agent', 'oss_cache'))
         
         if self.access_key_id:
             logger.info("✅ 从环境变量加载 OSS 配置")
@@ -121,10 +124,9 @@ class OSSManager:
 
     def _load_from_csv(self, csv_path: str):
         """从 AccessKey.csv 加载凭证（格式: 'AccessKey ID,AccessKey Secret' header）"""
-        import csv as _csv
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
-                reader = _csv.DictReader(f)
+                reader = csv.DictReader(f)
                 for row in reader:
                     key_id = row.get('AccessKey ID', '').strip()
                     key_secret = row.get('AccessKey Secret', '').strip()

@@ -48,9 +48,8 @@ class TestOSSManagerCSV:
         with patch.dict(sys.modules, {"oss2": mock_oss2}):
             from oss_manager import OSSManager
             mgr = OSSManager(csv_path=csv_path)
-
-        assert mgr.access_key_id == "TESTID123"
-        assert mgr.access_key_secret == "TESTSECRET456"
+            assert mgr.access_key_id == "TESTID123"
+            assert mgr.access_key_secret == "TESTSECRET456"
 
     def test_load_from_csv_missing_file_warns(self, tmp_path):
         mock_oss2 = _make_mock_oss2()
