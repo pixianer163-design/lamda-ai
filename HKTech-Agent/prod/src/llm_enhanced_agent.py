@@ -15,6 +15,7 @@ shared_dir = os.path.join(current_dir, '../../shared')
 if os.path.exists(shared_dir) and shared_dir not in sys.path:
     sys.path.insert(0, shared_dir)
 
+import glob
 import json
 import os
 import time
@@ -278,121 +279,202 @@ class LLMEnhancedAgent:
                 "09988": {"price": 85, "ma5": 84, "ma20": 86, "rsi": 45, "change_pct": 0, "data_source": "fallback_mock"},
                 "03690": {"price": 130, "ma5": 128, "ma20": 125, "rsi": 70, "change_pct": 0, "data_source": "fallback_mock"}
             }
-    
-    def run_daily_analysis(self, news_items=None):
+
+    def _load_market_data_safe(self) -> dict:
+        """安全的数据加载：读缓存 → mock"""
+        result = {}
+        cache_dir = os.path.join(self.data_dir, "cache")
+
+        # 确定目标股票列表
+        try:
+            from constants import DEFAULT_STOCKS
+            stocks = DEFAULT_STOCKS
+        except Exception:
+            stocks = ["00700", "09988", "03690"]
+
+        for code in stocks:
+            pattern = os.path.join(cache_dir, f"{code}_*.json")
+            files = sorted(glob.glob(pattern), reverse=True)
+            if files:
+                try:
+                    with open(files[0], encoding="utf-8") as f:
+                        data = json.load(f)
+                    data["data_source"] = "cache"
+                    result[code] = data
+                    continue
+                except Exception:
+                    pass
+            # Last resort: minimal mock
+            result[code] = {
+                "code": code, "price": 100.0, "rsi": 50.0,
+                "trend": "neutral", "change_pct": 0.0,
+                "ma5": 100.0, "ma20": 100.0, "volume": 1e7,
+                "data_source": "emergency_mock"
+            }
+        return result
+
+    def run_daily_analysis(self, news_items=None) -> dict:
         """
-        每日分析流程
+        每日分析流程 - 带逐步错误处理和优雅降级
         """
         start_time = time.time()
-        print("="*60)
+        print("=" * 60)
         print(f"📊 LLM增强版Agent - 每日分析")
         print(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        print("="*60)
-        
+        print("=" * 60)
+
+        result = {}
+
         # Step 1: 获取市场数据
         print("\n1️⃣ 获取市场数据...")
         step_start = time.time()
-        market_data = self._load_market_data()
+        try:
+            market_data = self._load_market_data()
+        except Exception as e:
+            print(f"⚠️ Step1 数据加载异常: {e}，使用安全 fallback")
+            market_data = self._load_market_data_safe()
         step_duration = time.time() - step_start
         _log_performance("load_market_data", step_duration, {"stocks_count": len(market_data)})
         print(f"   已获取 {len(market_data)} 只股票数据")
-        
+        result["market_data_source"] = (
+            list(market_data.values())[0].get("data_source", "unknown")
+            if market_data else "empty"
+        )
+
         # Step 2: LLM信号提取
         print("\n2️⃣ LLM信号提取...")
         step_start = time.time()
-        if news_items:
-            llm_signals = self.llm_extractor.analyze_news(news_items)
-        else:
-            # 使用已有信号
-            llm_signals = self.llm_extractor.get_latest_signals()
+        try:
+            if news_items:
+                llm_signals = self.llm_extractor.analyze_news(news_items)
+            else:
+                llm_signals = self.llm_extractor.get_latest_signals()
+        except Exception as e:
+            print(f"⚠️ Step2 LLM信号提取异常: {e}")
+            llm_signals = {}
         step_duration = time.time() - step_start
         _log_performance("llm_signal_extraction", step_duration, {"has_news": news_items is not None})
-        
-        print(f"   腾讯情绪: {llm_signals['00700_sentiment']:.2f}")
-        print(f"   阿里情绪: {llm_signals['09988_sentiment']:.2f}")
-        print(f"   美团情绪: {llm_signals['03690_sentiment']:.2f}")
-        
+
+        # 安全打印信号（兼容任意 key 格式）
+        for code in ["00700", "09988", "03690"]:
+            sentiment_key = f"{code}_sentiment"
+            if sentiment_key in llm_signals:
+                print(f"   {code} 情绪: {llm_signals[sentiment_key]:.2f}")
+            elif code in llm_signals:
+                val = llm_signals[code]
+                if isinstance(val, (int, float)):
+                    print(f"   {code} 情绪: {val:.2f}")
+
         # Step 3: 世界模型预测
         print("\n3️⃣ 世界模型预测...")
         step_start = time.time()
-        if self.wm_integration.enabled:
+        try:
             prediction = self.wm_integration.predict_future(
                 market_data, self.portfolio, horizon=5
             )
-            if prediction.get('enabled'):
+            if prediction.get("enabled"):
                 print(f"   预测天数: {prediction['horizon']}天")
                 print(f"   累计收益: {prediction['cumulative_return']:+.2f}%")
                 print(f"   置信度: {prediction['confidence']:.0%}")
                 print(f"   建议: {prediction['recommendation']}")
             else:
                 print(f"   ⚠️ {prediction.get('message', '预测失败')}")
-                prediction = None
-        else:
-            print("   ⚠️ 世界模型未启用")
-            prediction = None
+        except Exception as e:
+            print(f"⚠️ Step3 世界模型预测异常: {e}")
+            prediction = {
+                "enabled": False, "recommendation": "hold",
+                "confidence": 0.0, "predicted_returns": {},
+                "cumulative_return": 0.0, "reasoning": str(e), "actions": []
+            }
         step_duration = time.time() - step_start
-        _log_performance("world_model_prediction", step_duration, {"enabled": self.wm_integration.enabled})
-        
+        _log_performance("world_model_prediction", step_duration,
+                         {"enabled": prediction.get("enabled", False) if prediction else False})
+
         # Step 4: 统一策略引擎决策
         print("\n4️⃣ 统一策略引擎决策...")
         step_start = time.time()
-        base_decision = self._base_strategy(market_data, prediction)
+        try:
+            base_decision = self._base_strategy(market_data, prediction)
+        except Exception as e:
+            print(f"⚠️ Step4 基础策略异常: {e}，全部 HOLD")
+            base_decision = {
+                "decisions": {code: {"action": "hold", "confidence": 0.5}
+                              for code in market_data},
+                "summary": f"策略引擎异常: {e}"
+            }
         step_duration = time.time() - step_start
-        _log_performance("base_strategy", step_duration, {"stocks_count": len(base_decision)})
-        
-        for code, dec in base_decision.items():
+
+        # 兼容两种格式：直接 dict 或 {"decisions": {...}}
+        decisions_map = (base_decision.get("decisions", base_decision)
+                         if isinstance(base_decision, dict) else base_decision)
+        _log_performance("base_strategy", step_duration, {"stocks_count": len(decisions_map)})
+
+        for code, dec in decisions_map.items():
             print(f"   {code}: {dec['action']} (置信度{dec['confidence']:.0%})")
-            # 记录基础决策日志
             engine = "strategy_engine" if self.strategy_engine is not None else "fallback_strategy"
-            _log_decision(code, dec['action'], dec['confidence'], 
-                         dec.get('_engine_reason', '传统策略'), engine)
-        
+            _log_decision(code, dec["action"], dec["confidence"],
+                          dec.get("_engine_reason", "传统策略"), engine)
+
         # Step 5: LLM决策增强
         print("\n5️⃣ LLM决策增强...")
         step_start = time.time()
-        enhanced = self.llm_enhancer.enhance_decision(
-            base_decision, market_data, self.portfolio,
-            prediction, llm_signals
-        )
+        try:
+            enhanced = self.llm_enhancer.enhance_decision(
+                base_decision, market_data, self.portfolio,
+                prediction=prediction, llm_signals=llm_signals
+            )
+        except Exception as e:
+            print(f"⚠️ Step5 决策增强异常: {e}")
+            enhanced = {
+                "final_decision": decisions_map,
+                "llm_output": {},
+                "error": str(e)
+            }
         step_duration = time.time() - step_start
-        _log_performance("llm_decision_enhancement", step_duration, {"stocks_count": len(enhanced.get('final_decision', {}))})
-        
-        print(f"   LLM分析: {enhanced['llm_output']['analysis'][:50]}...")
+        _log_performance("llm_decision_enhancement", step_duration,
+                         {"stocks_count": len(enhanced.get("final_decision", {}))})
+
+        # 安全打印增强结果
+        llm_out = enhanced.get("llm_output", {})
+        if llm_out and "analysis" in llm_out:
+            print(f"   LLM分析: {llm_out['analysis'][:50]}...")
         print(f"   最终决策:")
-        for code, dec in enhanced['final_decision'].items():
-            print(f"     {code}: {dec['action']} ({dec['reason'][:30]}...)")
-            # 记录最终决策日志
-            _log_decision(code, dec['action'], dec['confidence'], 
-                         dec.get('reason', 'LLM增强决策'), "llm_enhanced")
-        
+        for code, dec in enhanced.get("final_decision", {}).items():
+            reason = dec.get("reason", "N/A")
+            print(f"     {code}: {dec['action']} ({str(reason)[:30]}...)")
+            _log_decision(code, dec["action"], dec.get("confidence", 0.5),
+                          reason, "llm_enhanced")
+
         # Step 6: 生成报告
         print("\n6️⃣ 生成投资报告...")
         step_start = time.time()
-        report = self.llm_enhancer.generate_daily_report(enhanced)
-        
-        # 保存报告
-        report_file = f"{self.data_dir}/daily_report_{datetime.now().strftime('%Y%m%d')}.txt"
-        with open(report_file, 'w') as f:
-            f.write(report)
-        step_duration = time.time() - step_start
-        _log_performance("generate_report", step_duration, {"report_file": report_file})
-        
-        print(f"   💾 报告已保存: {report_file}")
-        
-        # 打印报告
-        print("\n" + "="*60)
-        print(report)
-        print("="*60)
-        
+        try:
+            report = self.llm_enhancer.generate_daily_report(enhanced)
+            report_path = os.path.join(
+                self.data_dir,
+                f"daily_report_{datetime.now().strftime('%Y%m%d')}.txt"
+            )
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(report)
+            step_duration = time.time() - step_start
+            _log_performance("generate_report", step_duration, {"report_path": report_path})
+            print(f"   💾 报告已保存: {report_path}")
+            print("\n" + "=" * 60)
+            print(report)
+            print("=" * 60)
+        except Exception as e:
+            print(f"⚠️ Step6 报告生成异常: {e}")
+
         # 记录总体性能
         total_duration = time.time() - start_time
         _log_performance("daily_analysis_total", total_duration, {
             "stocks_analyzed": len(market_data),
             "steps": 6,
-            "prediction_enabled": prediction is not None and prediction.get('enabled', False)
+            "prediction_enabled": prediction is not None and prediction.get("enabled", False)
         })
-        
-        return enhanced
+
+        result.update(enhanced)
+        return result
     
     def _base_strategy(self, market_data: Dict, prediction: Optional[Dict]) -> Dict:
         """
