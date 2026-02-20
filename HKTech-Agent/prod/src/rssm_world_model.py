@@ -175,28 +175,26 @@ if not REAL_MODEL_LOADED:
                 avg_change = sum(initial_obs[i] * 10 for i in change_indices) / 3
                 
                 base_return = 0.0
-                
+
                 if avg_rsi > 60:
                     base_return -= (avg_rsi - 60) * 0.0005
                 elif avg_rsi < 40:
                     base_return += (40 - avg_rsi) * 0.0005
-                
+
                 base_return += avg_change * 0.3
-                
-                import random
-                random_return = random.uniform(-0.001, 0.001)
-                base_return += random_return
+                # deterministic small perturbation based on rsi/change values
+                base_return += (avg_change * 0.001 - avg_rsi * 0.00001)
             else:
                 base_return = 0.001
-            
+
             trajectory = []
             cumulative_reward = 0.0
-            
+
             for step in range(horizon):
                 step_return = base_return * (1.0 - step / (horizon * 1.5))
-                
-                step_random = random.uniform(-0.0005, 0.0005) * (horizon - step) / horizon
-                step_return += step_random
+                # deterministic decay term instead of random noise
+                step_decay = base_return * 0.0005 * (horizon - step) / horizon
+                step_return += step_decay
                 
                 trajectory.append({
                     'step': step,
@@ -269,7 +267,10 @@ class RSSMWorldModel:
             self.stocks = ["00700", "09988", "03690"]
         
         # 检查是否有真实的 GRU 模型文件
-        self.gru_model_path = os.path.join(data_dir, "gru_world_model.pt")
+        # Primary path: data/models/rssm_model.pt (from train_world_model.py)
+        self.gru_model_path = os.path.join(data_dir, "models", "rssm_model.pt")
+        # Legacy fallback path
+        self.gru_model_path_legacy = os.path.join(data_dir, "gru_world_model.pt")
         self.gru_model = None
         self._try_load_gru_model()
         
@@ -278,18 +279,22 @@ class RSSMWorldModel:
         self.trainer.load()
     
     def _try_load_gru_model(self):
-        """尝试加载 GRU 模型文件"""
-        if TORCH_AVAILABLE and os.path.exists(self.gru_model_path):
-            try:
-                self.gru_model = GRUWorldModel()
-                self.gru_model.load_state_dict(torch.load(self.gru_model_path, map_location="cpu"))
-                self.gru_model.eval()
-                print(f"✅ GRU 世界模型已加载: {self.gru_model_path}")
-            except Exception as e:
-                print(f"⚠️ GRU 模型加载失败: {e}，将使用技术指标 fallback")
-                self.gru_model = None
-        else:
+        """尝试加载 GRU 模型文件（支持多个候选路径）"""
+        if not TORCH_AVAILABLE:
             self.gru_model = None
+            return
+        for path in [self.gru_model_path, self.gru_model_path_legacy]:
+            if os.path.exists(path):
+                try:
+                    self.gru_model = GRUWorldModel()
+                    self.gru_model.load_state_dict(torch.load(path, map_location="cpu"))
+                    self.gru_model.eval()
+                    print(f"✅ GRU 世界模型已加载: {path}")
+                    return
+                except Exception as e:
+                    print(f"⚠️ GRU 模型加载失败({path}): {e}，尝试下一路径")
+                    self.gru_model = None
+        self.gru_model = None
     
     def predict(self, market_data: Dict, historical_data: Dict = None) -> Dict:
         """
