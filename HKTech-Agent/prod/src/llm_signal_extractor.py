@@ -6,7 +6,6 @@ LLM信号提取模块
 
 import json
 import os
-import random
 import requests
 import sys
 from datetime import datetime
@@ -184,12 +183,12 @@ class LLMSignalExtractor:
             except Exception as e:
                 print(f"   ⚠️ 读取缓存信号失败: {e}")
 
-        # 生成 fallback 信号
+        # 生成 fallback 信号（中性，无随机数）
         print(f"   🔄 生成 fallback 信号...")
         signals = {}
         for stock_code in self.stocks:
-            sentiment = 0.5 + random.uniform(-0.2, 0.2)
-            sentiment = max(0.2, min(0.8, sentiment))
+            # deterministic neutral sentiment: 0.5 for all stocks
+            sentiment = 0.5
             signals[stock_code] = round(sentiment, 2)
 
         # 保存

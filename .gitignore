@@ -25,7 +25,32 @@ Thumbs.db
 # 大型文件
 *.pptx
 
-# 敏感信息（如果有）
+# 敏感信息
 .env
 *.key
 *.pem
+AccessKey.csv
+local_config/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+venv_test/
+.coverage
+htmlcov/
+
+# 模型与数据（大文件）
+HKTech-Agent/data/
+*.whl
+
+# 日志
+logs/
+*.log
+
+# 临时测试文件（根目录）
+test_fix_stage1.py
+test_imports.py
+test_vectorbt_import.py
+test_model_load.py

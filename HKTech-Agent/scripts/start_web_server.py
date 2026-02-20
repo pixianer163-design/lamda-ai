@@ -8,6 +8,14 @@ import socketserver
 import json
 import os
 import re
+import sys
+
+# 添加项目路径以导入健康检查模块
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(script_dir, '..')
+shared_dir = os.path.join(project_root, 'shared')
+if shared_dir not in sys.path:
+    sys.path.insert(0, shared_dir)
 
 PORT = 8080
 WEB_DIR = "/opt/hktech-agent/web"
@@ -26,6 +34,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     
     def do_GET(self):
         """处理GET请求"""
+        # 健康检查端点
+        if self.path in ['/health', '/healthz', '/status']:
+            self.serve_health_check()
+            return
+        
         # 如果是markdown文件，渲染为HTML
         if self.path.endswith('.md'):
             self.serve_markdown()
@@ -127,6 +140,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     </div>
 </body>
 </html>'''
+    
+    def serve_health_check(self):
+        """提供健康检查端点"""
+        try:
+            # 导入健康检查模块
+            import health_check
+            
+            # 获取查询参数
+            import urllib.parse
+            query = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(query)
+            
+            format = params.get('format', ['text'])[0]
+            if format not in ['text', 'json', 'html']:
+                format = 'text'
+            
+            # 运行健康检查
+            report = health_check.run_health_check(format)
+            
+            # 设置响应头
+            if format == 'json':
+                content_type = 'application/json'
+            elif format == 'html':
+                content_type = 'text/html'
+            else:
+                content_type = 'text/plain'
+            
+            self.send_response(200)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Cache-Control', 'no-cache')
+            self.end_headers()
+            
+            # 发送响应
+            if isinstance(report, str):
+                self.wfile.write(report.encode('utf-8'))
+            else:
+                self.wfile.write(report)
+                
+        except Exception as e:
+            # 健康检查失败时的回退响应
+            import traceback
+            error_msg = f"健康检查失败: {str(e)}\n{traceback.format_exc()}"
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(error_msg.encode('utf-8'))
     
     def do_POST(self):
         if self.path == '/webhook/feishu/hktech':
