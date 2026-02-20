@@ -35,10 +35,11 @@ class TestVectorBTBacktester:
         bt.portfolio = vbt.Portfolio.from_signals(price, entries, exits, freq="1D")
         metrics = bt.get_metrics()
 
-        for key in ("sharpe_ratio", "max_drawdown", "total_return", "win_rate"):
+        for key in ("total_return", "sharpe_ratio", "max_drawdown", "win_rate",
+                    "total_trades", "avg_winning_trade"):
             assert key in metrics, f"缺少 key: {key}"
 
-    def test_run_backtest_from_signals_returns_metrics(self):
+    def test_run_backtest_returns_metrics(self):
         """run_backtest_from_signals() 应返回含 sharpe_ratio 的 dict"""
         pytest.importorskip("vectorbt")
         from vectorbt_integration import VectorBTBacktester
@@ -51,7 +52,7 @@ class TestVectorBTBacktester:
 
         result = bt.run_backtest_from_signals(price, signals)
         assert isinstance(result, dict)
-        assert "sharpe_ratio" in result or "error" in result
+        assert "sharpe_ratio" in result
 
     def test_graceful_when_vectorbt_unavailable(self, monkeypatch):
         """vectorbt 不可用时不应抛出 ImportError"""
