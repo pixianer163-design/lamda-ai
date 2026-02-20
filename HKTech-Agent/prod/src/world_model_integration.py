@@ -188,34 +188,6 @@ class WorldModelIntegration:
         
         return enhanced_prompt
     
-    def get_daily_report(self, market_data: dict, portfolio: dict) -> str:
-        """
-        生成每日世界模型报告
-        """
-        prediction = self.predict_future(market_data, portfolio, horizon=5)
-        
-        if not prediction.get('enabled'):
-            return "🤖 世界模型: 未启用"
-        
-        report = f"""🤖 世界模型预测 (RSSM)
-
-📊 未来{prediction['horizon']}天展望
-累计预期收益: {prediction['cumulative_return']:+.2f}%
-模型置信度: {prediction['confidence']:.0%}
-
-📈 逐日预测:
-"""
-        for i, ret in enumerate(prediction['predicted_returns']):
-            emoji = "📈" if ret > 0 else "📉" if ret < 0 else "➡️"
-            report += f"  {emoji} Day {i+1}: {ret:+.4f}\n"
-        
-        report += f"""
-🎯 模型建议: {prediction['recommendation']}
-💡 {prediction['reasoning']}
-"""
-        return report
-
-
 def test_integration():
     """测试集成"""
     print("="*50)
@@ -254,12 +226,7 @@ def test_integration():
     print(f"  置信度: {prediction['confidence']}")
     print(f"  建议: {prediction['recommendation']}")
     print(f"  理由: {prediction['reasoning']}")
-    
-    # 测试日报
-    print("\n📄 日报格式:")
-    report = wm.get_daily_report(market_data, portfolio)
-    print(report)
-    
+
     print("\n✅ 集成测试完成!")
 
 

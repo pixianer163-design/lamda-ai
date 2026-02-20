@@ -445,31 +445,11 @@ class LLMEnhancedAgent:
             _log_decision(code, dec["action"], dec.get("confidence", 0.5),
                           reason, "llm_enhanced")
 
-        # Step 6: 生成报告
-        print("\n6️⃣ 生成投资报告...")
-        step_start = time.time()
-        try:
-            report = self.llm_enhancer.generate_daily_report(enhanced)
-            report_path = os.path.join(
-                self.data_dir,
-                f"daily_report_{datetime.now().strftime('%Y%m%d')}.txt"
-            )
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(report)
-            step_duration = time.time() - step_start
-            _log_performance("generate_report", step_duration, {"report_path": report_path})
-            print(f"   💾 报告已保存: {report_path}")
-            print("\n" + "=" * 60)
-            print(report)
-            print("=" * 60)
-        except Exception as e:
-            print(f"⚠️ Step6 报告生成异常: {e}")
-
         # 记录总体性能
         total_duration = time.time() - start_time
         _log_performance("daily_analysis_total", total_duration, {
             "stocks_analyzed": len(market_data),
-            "steps": 6,
+            "steps": 5,
             "prediction_enabled": prediction is not None and prediction.get("enabled", False)
         })
 

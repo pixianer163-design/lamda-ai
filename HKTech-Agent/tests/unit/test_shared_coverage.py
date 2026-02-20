@@ -221,37 +221,3 @@ class TestStrategyEngineVirtual:
         assert isinstance(result, dict)
 
 
-# ============================================================================
-# active_src smoke tests addition — send_daily_report_card
-# ============================================================================
-
-class TestActiveSrcDailyReportSendCard:
-    """Extra tests for active_src/daily_report_sender.py card building."""
-
-    FAKE_CONFIG = '{"app_id": "x", "app_secret": "y", "chat_id": "z"}'
-
-    def _make_sender(self, tmp_path):
-        cfg = tmp_path / "cfg.json"
-        cfg.write_text(self.FAKE_CONFIG)
-        if "daily_report_sender" in sys.modules:
-            del sys.modules["daily_report_sender"]
-        from daily_report_sender import FeishuCardSender
-        return FeishuCardSender(config_path=str(cfg))
-
-    def test_get_token_network_error(self, tmp_path):
-        """_get_token should return None on network error."""
-        sender = self._make_sender(tmp_path)
-        with patch("requests.post", side_effect=Exception("network error")):
-            token = sender._get_token()
-        assert token is None
-
-    def test_send_card_no_token_or_chat(self, tmp_path):
-        """_send_card should return False when no token or chat_id."""
-        cfg = tmp_path / "cfg.json"
-        cfg.write_text("{}")
-        if "daily_report_sender" in sys.modules:
-            del sys.modules["daily_report_sender"]
-        from daily_report_sender import FeishuCardSender
-        sender = FeishuCardSender(config_path=str(cfg))
-        result = sender._send_card({"content": "test"})
-        assert result is False
