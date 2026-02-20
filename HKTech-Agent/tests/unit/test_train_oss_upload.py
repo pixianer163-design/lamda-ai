@@ -33,7 +33,7 @@ class TestUploadToOssAfterTraining:
             fn(str(tmp_path), str(tmp_path / "models" / "rssm_model.pt"))
         out = capsys.readouterr().out
         # Should print either "oss2 未安装" or "OSS初始化失败" — not raise
-        assert "跳过" in out or "失败" in out or "完成" in out
+        assert "跳过" in out or "失败" in out
 
     def test_skips_gracefully_when_oss_manager_import_fails(self, tmp_path, capsys):
         """When oss_manager module is not importable, prints warning and returns."""

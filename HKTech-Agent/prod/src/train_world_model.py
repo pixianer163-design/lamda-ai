@@ -227,10 +227,10 @@ def _upload_to_oss_after_training(data_dir: str, model_path: str) -> None:
         print(f"⚠️  OSS初始化失败，跳过上传: {e}")
         return
 
-    # 上传模型文件
-    models_dir = os.path.join(data_dir, "models")
-    for fname in ("rssm_model.pt", "scaler.pkl"):
-        fpath = os.path.join(models_dir, fname)
+    # 上传模型文件（从 model_path 推导目录，确保与训练输出一致）
+    model_dir = os.path.dirname(model_path)
+    for fname in (os.path.basename(model_path), "scaler.pkl"):
+        fpath = os.path.join(model_dir, fname)
         if os.path.exists(fpath):
             try:
                 oss.upload_model(fpath, fname)
