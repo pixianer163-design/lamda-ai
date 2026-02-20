@@ -32,6 +32,11 @@ Thumbs.db
 AccessKey.csv
 local_config/
 
+# 阿里云 OSS 配置文件（含敏感信息）
+config/aliyun_oss.conf
+*.conf
+.env.local
+
 # Python
 __pycache__/
 *.py[cod]
@@ -44,6 +49,15 @@ htmlcov/
 # 模型与数据（大文件）
 HKTech-Agent/data/
 *.whl
+
+# 机器学习模型文件（大文件，不推送）
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.onnx
+models/**/*.pt
+models/**/*.pth
 
 # 日志
 logs/
