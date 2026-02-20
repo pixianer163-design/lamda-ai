@@ -19,7 +19,7 @@ ACCESS_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../A
 # OSS配置 - 可以通过环境变量或命令行参数设置
 OSS_ENDPOINT = os.environ.get("OSS_ENDPOINT", "oss-cn-beijing.aliyuncs.com")
 OSS_BUCKET = os.environ.get("OSS_BUCKET", "hktech-agent-models")
-OSS_PREFIX = os.environ.get("OSS_PREFIX", "world_model/v1/")
+OSS_PREFIX = os.environ.get("OSS_PREFIX", "models/")
 
 def load_access_keys(key_file: str = ACCESS_KEY_FILE):
     """从CSV文件加载AccessKey"""
