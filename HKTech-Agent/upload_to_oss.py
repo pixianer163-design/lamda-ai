@@ -14,10 +14,10 @@ from typing import List, Optional
 
 # 阿里云OSS配置
 # 从AccessKey.csv读取密钥
-ACCESS_KEY_FILE = "/mnt/d/project/AccessKey.csv"
+ACCESS_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../AccessKey.csv")
 
 # OSS配置 - 可以通过环境变量或命令行参数设置
-OSS_ENDPOINT = os.environ.get("OSS_ENDPOINT", "oss-cn-hangzhou.aliyuncs.com")
+OSS_ENDPOINT = os.environ.get("OSS_ENDPOINT", "oss-cn-beijing.aliyuncs.com")
 OSS_BUCKET = os.environ.get("OSS_BUCKET", "hktech-agent-models")
 OSS_PREFIX = os.environ.get("OSS_PREFIX", "world_model/v1/")
 
