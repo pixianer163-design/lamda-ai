@@ -48,7 +48,7 @@ class OSSManager:
         
         Args:
             config_path: 配置文件路径，默认从环境变量读取
-            csv_path: AccessKey.csv 路径，格式为 'AccessKey ID,AccessKey Secret' 列头，优先级低于环境变量
+            csv_path: AccessKey.csv 路径，格式为 'AccessKey ID,AccessKey Secret' 列头，优先级: 环境变量 > csv_path > config_path
         """
         self.access_key_id = None
         self.access_key_secret = None
@@ -290,8 +290,9 @@ class OSSManager:
     def list_models(self) -> list:
         """列出所有模型文件"""
         try:
+            import oss2 as _oss2
             models = []
-            for obj in oss2.ObjectIterator(self.bucket, prefix='models/'):
+            for obj in _oss2.ObjectIterator(self.bucket, prefix='models/'):
                 if obj.key.endswith('.pt') or obj.key.endswith('.pth'):
                     models.append({
                         'name': os.path.basename(obj.key),
@@ -307,8 +308,9 @@ class OSSManager:
     def list_training_data(self) -> list:
         """列出所有训练数据（使用 data_bucket）"""
         try:
+            import oss2 as _oss2
             datasets = []
-            for obj in oss2.ObjectIterator(self.data_bucket, prefix='training-data/'):
+            for obj in _oss2.ObjectIterator(self.data_bucket, prefix='training-data/'):
                 if obj.key.endswith('.npy') or obj.key.endswith('.npz'):
                     datasets.append({
                         'name': os.path.basename(obj.key),
