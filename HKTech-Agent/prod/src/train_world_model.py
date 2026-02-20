@@ -246,6 +246,8 @@ def _upload_to_oss_after_training(data_dir: str, model_path: str) -> None:
             oss.upload_training_data(episodes_path, "training_episodes.json")
         except Exception as e:
             print(f"⚠️  上传 training_episodes.json 失败: {e}")
+    else:
+        print(f"⚠️  文件不存在，跳过: {episodes_path}")
 
     print("✅ OSS上传流程完成")
 
