@@ -26,7 +26,7 @@ Thumbs.db
 *.pptx
 
 # 敏感信息
-.env
+# .env (except aliyun_oss.conf)
 *.key
 *.pem
 AccessKey.csv
