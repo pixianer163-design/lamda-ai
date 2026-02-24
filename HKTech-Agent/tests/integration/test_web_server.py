@@ -8,6 +8,7 @@ Web服务器集成测试
 import pytest
 import sys
 import os
+import io
 import json
 import tempfile
 from pathlib import Path
@@ -184,11 +185,13 @@ class TestWebServerMarkdownRendering:
         """测试Markdown转HTML功能"""
         with patch('start_web_server.WEB_DIR', '/tmp/test_web'), \
              patch('start_web_server.DOCS_DIR', str(temp_markdown_file.parent)):
-            
+
             import start_web_server
-            
+
+            mock_socket = Mock()
+            mock_socket.makefile.return_value = io.BytesIO(b'')
             handler = start_web_server.Handler(
-                Mock(),
+                mock_socket,
                 ('127.0.0.1', 8080),
                 Mock()
             )
@@ -210,11 +213,13 @@ class TestWebServerStaticFiles:
         """测试路径转换移除/web前缀"""
         with patch('start_web_server.WEB_DIR', '/tmp/test_web'), \
              patch('start_web_server.DOCS_DIR', '/tmp/test_docs'):
-            
+
             import start_web_server
-            
+
+            mock_socket = Mock()
+            mock_socket.makefile.return_value = io.BytesIO(b'')
             handler = start_web_server.Handler(
-                Mock(),
+                mock_socket,
                 ('127.0.0.1', 8080),
                 Mock()
             )
