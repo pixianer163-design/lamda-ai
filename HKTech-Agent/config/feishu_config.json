@@ -1,7 +1,8 @@
 {
-  "app_id": "cli_a919022256b8dcd6",
-  "app_secret": "CMeZVtdubnNz0NtneRUETbzzrJwxyZUZ",
-  "chat_id": "oc_d5f6f6f591bc129e4ae9037b0acdd3a5",
-  "webhook_url": "",
+  "app_id": "cli_a918213443b8dcd6",
+  "app_secret": "ybp63RNb0sH2PQvOLyBKFcRwhGTwBD4z",
+  "chat_id": "oc_1c509d279aa4bd1b785a57f1cc13427c",
+  "open_id": "ou_ea19416066a160e39dd6750a7b09dd76",
+  "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/7a7dbe38-9181-4311-8094-ebaf6cf0f378",
   "enabled": true
 }
