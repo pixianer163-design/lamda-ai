@@ -5,12 +5,34 @@
 """
 
 import sys
-sys.path.insert(0, '/opt/hktech-agent/src')
 
 import json
 import os
 from datetime import datetime
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    print("⚠️  numpy未安装，使用替代方案")
+    NUMPY_AVAILABLE = False
+    # 创建虚拟np模块
+    class MockNumpy:
+        @staticmethod
+        def array(data, dtype=None):
+            return data
+        @staticmethod  
+        def float32():
+            return float
+    np = MockNumpy()
+
+# 导入共享常量
+SHARED_CONSTANTS_AVAILABLE = False
+constants = None  # 默认值
+try:
+    import constants
+    SHARED_CONSTANTS_AVAILABLE = True
+except ImportError:
+    print("⚠️ 共享常量模块不可用，使用本地定义")
 
 # 导入世界模型
 try:
@@ -27,13 +49,22 @@ class WorldModelIntegration:
     为Agent提供预测和决策支持
     """
     
-    def __init__(self, data_dir="/opt/hktech-agent/data"):
+    def __init__(self, data_dir=None):
+        import os
+        if data_dir is None:
+            # 默认使用项目相对路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            data_dir = os.path.join(current_dir, '../../data')
+            print(f"📂 世界模型数据目录: {data_dir}")
+        
         self.data_dir = data_dir
         self.enabled = WORLD_MODEL_AVAILABLE
         
         if self.enabled:
             try:
-                self.trainer = WorldModelTrainer(device="cpu")
+                self.trainer = WorldModelTrainer(data_dir=self.data_dir, device="cpu")
+                print(f"📂 训练器模型路径: {self.trainer.model_path}")
+                print(f"📂 路径存在: {os.path.exists(self.trainer.model_path)}")
                 self.loaded = self.trainer.load()
                 if self.loaded:
                     print("✅ 世界模型集成: 已加载")
@@ -46,7 +77,7 @@ class WorldModelIntegration:
         else:
             self.loaded = False
     
-    def prepare_observation(self, market_data: dict, portfolio: dict) -> np.ndarray:
+    def prepare_observation(self, market_data: dict, portfolio: dict) -> list:
         """
         准备观测向量 (15维)
         
@@ -55,7 +86,13 @@ class WorldModelIntegration:
         """
         obs = []
         
-        for code in ['00700', '09988', '03690']:
+        # 使用共享常量或本地定义
+        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
+            stock_codes = constants.DEFAULT_STOCKS
+        else:
+            stock_codes = ['00700', '09988', '03690']
+        
+        for code in stock_codes:
             if code in market_data:
                 data = market_data[code]
                 obs.extend([
@@ -69,81 +106,53 @@ class WorldModelIntegration:
                 # 缺失数据用默认值
                 obs.extend([0, 0, 0, 0.5, 0])
         
-        return np.array(obs, dtype=np.float32)
+        return obs
     
-    def predict_future(self, market_data: dict, portfolio: dict, 
-                       proposed_action: list = None, horizon: int = 3) -> dict:
-        """
-        预测未来走势
-        
-        返回:
-            {
-                'enabled': True/False,
-                'horizon': 预测天数,
-                'predicted_returns': [day1_return, day2_return, ...],
-                'cumulative_return': 累计收益,
-                'confidence': 置信度,
-                'recommendation': '买入'/'卖出'/'持有',
-                'reasoning': '解释'
-            }
-        """
-        if not self.enabled or not self.loaded:
-            return {
-                'enabled': False,
-                'message': '世界模型未启用'
-            }
-        
-        # 准备观测
-        obs = self.prepare_observation(market_data, portfolio)
-        
-        # 默认动作: 维持当前仓位
-        if proposed_action is None:
-            proposed_action = [0.0, 0.0, 0.0]
-        
+    def predict_future(self, market_data: dict, portfolio: dict,
+                       proposed_action=None, horizon: int = 3) -> dict:
+        """使用世界模型预测未来收益"""
+        disabled_result = {
+            "enabled": False,
+            "horizon": horizon,
+            "predicted_returns": {},
+            "cumulative_return": 0.0,
+            "confidence": 0.0,
+            "recommendation": "hold",
+            "reasoning": "世界模型未加载，使用保守策略",
+            "actions": [],
+        }
+
+        if not self.enabled:
+            return disabled_result
+
         try:
-            # 想象未来
-            prediction = self.trainer.imagine_future(obs, proposed_action, horizon=horizon)
-            
-            # 解析结果
-            returns = [step['predicted_reward'] for step in prediction['trajectory']]
-            cumulative = prediction['cumulative_reward']
-            
-            # 生成建议
-            if cumulative > 0.01:
-                recommendation = '加仓'
-                reasoning = f'模型预测未来{horizon}天累计收益{cumulative:.2f}%，趋势向好'
-            elif cumulative < -0.01:
-                recommendation = '减仓'
-                reasoning = f'模型预测未来{horizon}天累计收益{cumulative:.2f}%，建议避险'
+            result = self.trainer.predict(market_data, portfolio)
+            predicted_return = float(result.get("predicted_return", 0.0))
+            confidence = float(result.get("confidence", 0.4))
+            regime = result.get("regime", "neutral")
+
+            if predicted_return > 0.03 and confidence > 0.6:
+                recommendation = "buy"
+            elif predicted_return < -0.03 and confidence > 0.6:
+                recommendation = "sell"
             else:
-                recommendation = '持有'
-                reasoning = f'模型预测未来{horizon}天收益{cumulative:.2f}%，趋势不明朗'
-            
-            # 简单置信度（基于预测一致性）
-            if len(returns) > 1:
-                consistency = 1 - abs(np.std(returns) / (abs(np.mean(returns)) + 0.001))
-                confidence = max(0.3, min(0.9, consistency))
-            else:
-                confidence = 0.5
-            
+                recommendation = "hold"
+
             return {
-                'enabled': True,
-                'horizon': horizon,
-                'predicted_returns': returns,
-                'cumulative_return': cumulative,
-                'confidence': round(confidence, 2),
-                'recommendation': recommendation,
-                'reasoning': reasoning,
-                'actions': [step['action'] for step in prediction['trajectory']]
+                "enabled": True,
+                "horizon": horizon,
+                "predicted_returns": {code: predicted_return for code in market_data},
+                "cumulative_return": round(predicted_return * horizon, 4),
+                "confidence": round(confidence, 4),
+                "recommendation": recommendation,
+                "reasoning": f"GRU预测{horizon}日收益: {predicted_return:.2%}（{regime}市场）",
+                "actions": [recommendation] * horizon,
             }
-            
         except Exception as e:
-            return {
-                'enabled': True,
-                'error': str(e),
-                'message': '预测过程中出错'
-            }
-    
+            print(f"⚠️ 世界模型预测失败: {e}")
+            disabled_result["reasoning"] = f"预测失败: {e}"
+            return disabled_result
+
     def enhance_decision_prompt(self, base_prompt: str, market_data: dict, 
                                 portfolio: dict) -> str:
         """
@@ -179,34 +188,6 @@ class WorldModelIntegration:
         
         return enhanced_prompt
     
-    def get_daily_report(self, market_data: dict, portfolio: dict) -> str:
-        """
-        生成每日世界模型报告
-        """
-        prediction = self.predict_future(market_data, portfolio, horizon=5)
-        
-        if not prediction.get('enabled'):
-            return "🤖 世界模型: 未启用"
-        
-        report = f"""🤖 世界模型预测 (RSSM)
-
-📊 未来{prediction['horizon']}天展望
-累计预期收益: {prediction['cumulative_return']:+.2f}%
-模型置信度: {prediction['confidence']:.0%}
-
-📈 逐日预测:
-"""
-        for i, ret in enumerate(prediction['predicted_returns']):
-            emoji = "📈" if ret > 0 else "📉" if ret < 0 else "➡️"
-            report += f"  {emoji} Day {i+1}: {ret:+.4f}\n"
-        
-        report += f"""
-🎯 模型建议: {prediction['recommendation']}
-💡 {prediction['reasoning']}
-"""
-        return report
-
-
 def test_integration():
     """测试集成"""
     print("="*50)
@@ -245,12 +226,7 @@ def test_integration():
     print(f"  置信度: {prediction['confidence']}")
     print(f"  建议: {prediction['recommendation']}")
     print(f"  理由: {prediction['reasoning']}")
-    
-    # 测试日报
-    print("\n📄 日报格式:")
-    report = wm.get_daily_report(market_data, portfolio)
-    print(report)
-    
+
     print("\n✅ 集成测试完成!")
 
 

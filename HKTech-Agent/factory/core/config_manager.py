@@ -5,10 +5,23 @@ Agent Factory - 配置管理器
 """
 
 import os
+import sys
 import json
 import yaml
 from typing import Dict, Any, Optional
 from dataclasses import asdict
+
+# 添加shared模块到路径
+shared_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "shared")
+if shared_path not in sys.path:
+    sys.path.insert(0, shared_path)
+
+try:
+    import constants
+    SHARED_CONSTANTS_AVAILABLE = True
+except ImportError:
+    SHARED_CONSTANTS_AVAILABLE = False
+    print("⚠️ 共享常量模块不可用，使用本地定义")
 
 from templates.agent_templates import get_template, AgentTemplate
 
@@ -24,7 +37,25 @@ class ConfigManager:
     4. 验证配置完整性
     """
     
-    def __init__(self, config_dir: str = "/opt/hktech-agent/factory/configs"):
+    def __init__(self, config_dir: str = None):
+        if config_dir is None:
+            # 使用项目相对路径
+            import sys
+            import os
+            # 尝试多种路径
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "factory", "configs"),
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "factory", "configs"),
+                "/opt/hktech-agent/factory/configs"
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    config_dir = path
+                    break
+            if config_dir is None:
+                # 使用第一个可能的路径并创建
+                config_dir = possible_paths[0]
+        
         self.config_dir = config_dir
         os.makedirs(config_dir, exist_ok=True)
     
@@ -101,27 +132,44 @@ class ConfigManager:
         overrides: Dict = None
     ) -> list:
         """构建股票配置"""
-        # 股票代码到信息的映射
-        stock_info = {
-            "00700": {"name": "腾讯控股", "sector": "互联网"},
-            "09988": {"name": "阿里巴巴", "sector": "电商"},
-            "03690": {"name": "美团", "sector": "本地生活"},
-            "01810": {"name": "小米集团", "sector": "硬件"}
-        }
-        
-        stocks = []
-        for code in stock_codes:
-            info = stock_info.get(code, {"name": code, "sector": "未知"})
-            
-            stock_config = {
-                "code": code,
-                "name": info["name"],
-                "sector": info["sector"],
-                "weight": 1.0 / len(stock_codes),  # 默认等权
-                "stop_loss": 0.08,
-                "take_profit": 0.15
+        # 使用共享常量或本地回退
+        if SHARED_CONSTANTS_AVAILABLE:
+            # 从共享常量模块获取股票信息
+            stocks = []
+            for code in stock_codes:
+                stock_info = constants.STOCKS.get(code, {})
+                
+                stock_config = {
+                    "code": code,
+                    "name": stock_info.get("name", code),
+                    "sector": stock_info.get("sector", "未知"),
+                    "weight": 1.0 / len(stock_codes),  # 默认等权
+                    "stop_loss": 0.08,
+                    "take_profit": 0.15
+                }
+                stocks.append(stock_config)
+        else:
+            # 本地回退定义
+            stock_info = {
+                "00700": {"name": "腾讯控股", "sector": "互联网"},
+                "09988": {"name": "阿里巴巴", "sector": "电商"},
+                "03690": {"name": "美团-W", "sector": "本地生活"},
+                "01810": {"name": "小米集团-W", "sector": "硬件"}
             }
-            stocks.append(stock_config)
+            
+            stocks = []
+            for code in stock_codes:
+                info = stock_info.get(code, {"name": code, "sector": "未知"})
+                
+                stock_config = {
+                    "code": code,
+                    "name": info["name"],
+                    "sector": info["sector"],
+                    "weight": 1.0 / len(stock_codes),  # 默认等权
+                    "stop_loss": 0.08,
+                    "take_profit": 0.15
+                }
+                stocks.append(stock_config)
         
         # 应用覆盖
         if overrides and "stocks" in overrides:

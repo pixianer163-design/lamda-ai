@@ -1,15 +1,35 @@
+from __future__ import annotations
+
 """
 VectorBT 与恒生Agent集成模块
 提供向量化回测能力，用于快速策略筛选
+支持优雅降级：当VectorBT不可用时提供虚拟实现
 """
 
-import vectorbt as vbt
-import pandas as pd
-import numpy as np
+import sys
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
+
+# 尝试导入VectorBT和相关依赖
+VECTORBT_AVAILABLE = False
+vbt = None
+pd = None
+np = None
+
+try:
+    import vectorbt as vbt
+    import pandas as pd
+    import numpy as np
+    VECTORBT_AVAILABLE = True
+    print("✅ VectorBT集成模块加载成功")
+except ImportError as e:
+    print(f"⚠️ VectorBT集成模块不可用: {e}")
+    print("⚠️ 使用虚拟实现，仅提供接口")
+
+# Alias used by run_backtest_from_signals
+VBT_AVAILABLE = VECTORBT_AVAILABLE
 
 
 class VectorBTBacktester:
@@ -38,7 +58,7 @@ class VectorBTBacktester:
     def fetch_data(self, symbols: List[str], 
                    start: str = None, 
                    end: str = None,
-                   period: str = "1y") -> pd.DataFrame:
+                   period: str = "1y") -> 'pd.DataFrame':
         """
         获取股票数据 (与恒生Agent使用相同数据源)
         
@@ -168,36 +188,64 @@ class VectorBTBacktester:
             init_cash=self.initial_cash,
             fees=self.fees,
             slippage=slippage,
-            freq='1d'  # 日频
+            freq='1D'  # 日频
         )
         
         return self.portfolio
     
-    def get_metrics(self) -> Dict:
-        """
-        获取回测指标 (与恒生Agent回测格式兼容)
-        
-        Returns:
-            Dict: 绩效指标
-        """
+    def get_metrics(self) -> dict:
+        """返回回测指标"""
         if self.portfolio is None:
-            raise ValueError("请先执行回测")
-        
-        pf = self.portfolio
-        
-        return {
-            'total_return': pf.total_return(),
-            'total_profit': pf.total_profit(),
-            'sharpe_ratio': pf.sharpe_ratio(),
-            'max_drawdown': pf.max_drawdown(),
-            'win_rate': pf.trades.win_rate(),
-            'avg_winning_trade': pf.trades.returns_avg_winning(),
-            'avg_losing_trade': pf.trades.returns_avg_losing(),
-            'profit_factor': pf.trades.profit_factor(),
-            'expectancy': pf.trades.expectancy(),
-            'total_trades': pf.trades.count(),
-            'avg_trade_duration': pf.trades.duration.mean()
-        }
+            return {}
+        try:
+            trades = self.portfolio.trades
+            n_trades = len(trades.records) if hasattr(trades, 'records') else 0
+            win_rate = 0.0
+            avg_win = 0.0
+            if n_trades > 0:
+                try:
+                    win_rate = float(trades.win_rate())
+                except Exception:
+                    pass
+                try:
+                    win_records = trades.records[trades.records['pnl'] > 0]
+                    avg_win = float(win_records['pnl'].mean()) if len(win_records) > 0 else 0.0
+                except Exception:
+                    pass
+            return {
+                "total_return":      float(self.portfolio.total_return()),
+                "sharpe_ratio":      float(self.portfolio.sharpe_ratio()),
+                "max_drawdown":      float(self.portfolio.max_drawdown()),
+                "win_rate":          win_rate,
+                "total_trades":      n_trades,
+                "avg_winning_trade": avg_win,
+            }
+        except Exception as e:
+            print(f"⚠️ get_metrics 失败: {e}")
+            return {}
+
+    def run_backtest_from_signals(self, price: pd.Series, signals: pd.Series,
+                                  slippage: float = 0.001) -> dict:
+        """
+        使用信号序列运行回测
+        signals: pd.Series, 1=买入, -1=卖出, 0=持有
+        返回: 指标 dict（如 vectorbt 不可用，返回 {"error": "..."}）
+        """
+        if not VBT_AVAILABLE:
+            return {"error": "vectorbt 不可用"}
+        try:
+            entries = (signals == 1)
+            exits   = (signals == -1)
+            self.portfolio = vbt.Portfolio.from_signals(
+                price, entries, exits,
+                fees=self.fees,
+                slippage=slippage,
+                freq="1D",
+                init_cash=self.initial_cash,
+            )
+            return self.get_metrics()
+        except Exception as e:
+            return {"error": str(e)}
     
     def optimize_parameters(self, price: pd.DataFrame,
                            strategy_type: str = "ma_cross",

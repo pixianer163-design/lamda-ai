@@ -15,7 +15,7 @@ if [ -f "/opt/hktech-agent/config/config.env" ]; then
 fi
 
 # 设置环境变量
-export PYTHONPATH="$DIR/src:$PYTHONPATH"
+export PYTHONPATH="$DIR/src:$DIR/../active_src:$DIR/../shared:$PYTHONPATH"
 export AGENT_ENV="prod"
 export AGENT_LOG_DIR="$DIR/logs"
 
@@ -42,10 +42,6 @@ echo "=========================================="
 
 # 运行主程序
 python3 $DIR/src/llm_enhanced_agent.py 2>&1 | tee $AGENT_LOG_DIR/run_$(date +%Y%m%d_%H%M%S).log
-
-echo ""
-echo "📱 发送日报到飞书..."
-python3 $DIR/src/daily_report_sender.py 2>&1 | tee -a $AGENT_LOG_DIR/run_$(date +%Y%m%d_%H%M%S).log
 
 echo "=========================================="
 echo "✅ 运行完成: $(date)"

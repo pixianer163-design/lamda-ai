@@ -1,0 +1,27 @@
+[run]
+source =
+    shared
+    prod/src
+    active_src
+omit =
+    # Test scripts that live in active_src (not source code)
+    active_src/test_vectorbt_performance.py
+    active_src/test_vectorbt_performance_offline.py
+    # Archived / alternative implementations (not part of live system)
+    prod/src/rssm_world_model_original.py
+    prod/src/rssm_world_model_real.py
+    # Old config system (superseded by shared/config.py)
+    shared/config_loader.py
+    # venv
+    */venv/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    pass

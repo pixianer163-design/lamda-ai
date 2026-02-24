@@ -15,7 +15,8 @@ import argparse
 from datetime import datetime
 
 # 添加项目路径
-sys.path.insert(0, '/opt/hktech-agent/active_src')
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _SCRIPT_DIR)
 
 def test_basic_connection():
     """测试基本连接"""

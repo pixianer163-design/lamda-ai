@@ -25,10 +25,30 @@ Thumbs.db
 # 大型文件
 *.pptx
 
-# 敏感信息（如果有）
+# 敏感信息
 .env
 *.key
 *.pem
+AccessKey.csv
+local_config/
+
+# 阿里云 OSS 配置文件（含敏感信息）
+config/aliyun_oss.conf
+*.conf
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+venv_test/
+.coverage
+htmlcov/
+
+# 模型与数据（大文件）
+HKTech-Agent/data/
+*.whl
 
 # 机器学习模型文件（大文件，不推送）
 *.pt
@@ -39,7 +59,12 @@ Thumbs.db
 models/**/*.pt
 models/**/*.pth
 
-# 阿里云 OSS 配置文件（含敏感信息）
-config/aliyun_oss.conf
-*.conf
-.env.local
+# 日志
+logs/
+*.log
+
+# 临时测试文件（根目录）
+test_fix_stage1.py
+test_imports.py
+test_vectorbt_import.py
+test_model_load.py

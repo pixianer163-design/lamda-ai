@@ -17,6 +17,7 @@
     oss.upload_training_data('episodes_2024_01.npy')
 """
 
+import csv
 import os
 import sys
 from pathlib import Path
@@ -41,12 +42,13 @@ class OSSManager:
     自动从环境变量或配置文件读取凭证
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, csv_path: Optional[str] = None):
         """
         初始化 OSS 管理器
         
         Args:
             config_path: 配置文件路径，默认从环境变量读取
+            csv_path: AccessKey.csv 路径，格式为 'AccessKey ID,AccessKey Secret' 列头，优先级: 环境变量 > csv_path > config_path
         """
         self.access_key_id = None
         self.access_key_secret = None
@@ -57,8 +59,12 @@ class OSSManager:
         
         # 尝试从环境变量加载
         self._load_from_env()
-        
-        # 如果环境变量不存在，尝试从配置文件加载
+
+        # 如果环境变量不存在，尝试从CSV文件加载（优先级高于config_path）
+        if not self.access_key_id and csv_path:
+            self._load_from_csv(csv_path)
+
+        # 如果以上都没有，尝试从配置文件加载
         if not self.access_key_id and config_path:
             self._load_from_config(config_path)
         
@@ -80,7 +86,8 @@ class OSSManager:
         self.endpoint = os.getenv('ALIYUN_OSS_ENDPOINT', 'oss-cn-beijing.aliyuncs.com')
         self.bucket_name = os.getenv('ALIYUN_OSS_BUCKET', 'hktech-agent-models')
         self.data_bucket_name = os.getenv('ALIYUN_DATA_BUCKET', 'cloud-training')
-        self.local_cache_dir = os.getenv('ALIYUN_LOCAL_CACHE_DIR', '/opt/hktech-agent/.oss_cache')
+        self.local_cache_dir = os.getenv('ALIYUN_LOCAL_CACHE_DIR',
+            os.path.join(os.path.expanduser('~'), '.hktech_agent', 'oss_cache'))
         
         if self.access_key_id:
             logger.info("✅ 从环境变量加载 OSS 配置")
@@ -114,7 +121,26 @@ class OSSManager:
             logger.info(f"✅ 从配置文件加载 OSS 配置: {config_path}")
         except Exception as e:
             logger.error(f"❌ 读取配置文件失败: {e}")
-    
+
+    def _load_from_csv(self, csv_path: str):
+        """从 AccessKey.csv 加载凭证（格式: 'AccessKey ID,AccessKey Secret' header）"""
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    key_id = row.get('AccessKey ID', '').strip()
+                    key_secret = row.get('AccessKey Secret', '').strip()
+                    if key_id and key_secret:
+                        self.access_key_id = key_id
+                        self.access_key_secret = key_secret
+                        logger.info(f"✅ 从CSV文件加载OSS凭证: {csv_path}")
+                        return
+            logger.warning(f"⚠️ CSV文件中未找到有效凭证: {csv_path}")
+        except FileNotFoundError:
+            logger.warning(f"⚠️ AccessKey CSV文件不存在: {csv_path}")
+        except Exception as e:
+            logger.error(f"❌ 读取CSV凭证失败: {e}")
+
     def _validate_config(self) -> bool:
         """验证配置是否完整"""
         required = [
@@ -264,8 +290,9 @@ class OSSManager:
     def list_models(self) -> list:
         """列出所有模型文件"""
         try:
+            import oss2 as _oss2
             models = []
-            for obj in oss2.ObjectIterator(self.bucket, prefix='models/'):
+            for obj in _oss2.ObjectIterator(self.bucket, prefix='models/'):
                 if obj.key.endswith('.pt') or obj.key.endswith('.pth'):
                     models.append({
                         'name': os.path.basename(obj.key),
@@ -281,8 +308,9 @@ class OSSManager:
     def list_training_data(self) -> list:
         """列出所有训练数据（使用 data_bucket）"""
         try:
+            import oss2 as _oss2
             datasets = []
-            for obj in oss2.ObjectIterator(self.data_bucket, prefix='training-data/'):
+            for obj in _oss2.ObjectIterator(self.data_bucket, prefix='training-data/'):
                 if obj.key.endswith('.npy') or obj.key.endswith('.npz'):
                     datasets.append({
                         'name': os.path.basename(obj.key),
