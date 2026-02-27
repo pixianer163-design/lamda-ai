@@ -9,10 +9,6 @@ import sys
 from typing import Dict, List, Optional
 from copy import deepcopy
 
-sys.path.insert(0, '/opt/hktech-agent/factory')
-sys.path.insert(0, '/opt/hktech-agent/factory/core')
-sys.path.insert(0, '/opt/hktech-agent/factory/templates')
-
 from core.config_manager import ConfigManager
 from core.trading_agent import TradingAgent
 from templates.agent_templates import get_template, list_templates
@@ -30,7 +26,10 @@ class AgentFactory:
     5. 批量操作
     """
     
-    def __init__(self, config_dir: str = "/opt/hktech-agent/factory/configs"):
+    def __init__(self, config_dir: str = None):
+        if config_dir is None:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_dir = os.path.join(project_root, "configs")
         self.config_manager = ConfigManager(config_dir)
         self.active_agents: Dict[str, TradingAgent] = {}
     

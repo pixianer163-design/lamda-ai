@@ -11,7 +11,6 @@ import yaml
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 
-# 添加项目根目录到路径
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 shared_path = os.path.join(project_root, "shared")
 factory_path = os.path.join(project_root, "factory")
@@ -50,7 +49,6 @@ class ConfigManager:
             possible_paths = [
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "factory", "configs"),
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "factory", "configs"),
-                "/opt/hktech-agent/factory/configs"
             ]
             for path in possible_paths:
                 if os.path.exists(path):

@@ -11,8 +11,13 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
-sys.path.insert(0, '/opt/hktech-agent')
-sys.path.insert(0, '/opt/hktech-agent/factory/core')
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_DATA_DIR = os.path.join(_PROJECT_ROOT, "data")
+
+for _path in [_PROJECT_ROOT, _HERE]:
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from shared_services import get_services
 
@@ -369,7 +374,7 @@ class TradingAgent:
         }
         
         # 保存到文件
-        memory_file = f"/opt/hktech-agent/data/agent_{self.agent_id}_memory.json"
+        memory_file = os.path.join(_DATA_DIR, f"agent_{self.agent_id}_memory.json")
         memories = []
         if os.path.exists(memory_file):
             with open(memory_file, 'r') as f:
@@ -498,7 +503,7 @@ class TradingAgent:
     
     def _load_portfolio(self) -> Dict:
         """加载投资组合"""
-        portfolio_file = f"/opt/hktech-agent/data/agent_{self.agent_id}_portfolio.json"
+        portfolio_file = os.path.join(_DATA_DIR, f"agent_{self.agent_id}_portfolio.json")
         default = {
             "cash": 100000.0,
             "total_value": 100000.0,
@@ -515,7 +520,7 @@ class TradingAgent:
     
     def _load_day_count(self) -> int:
         """加载运行天数"""
-        count_file = f"/opt/hktech-agent/data/agent_{self.agent_id}_count.json"
+        count_file = os.path.join(_DATA_DIR, f"agent_{self.agent_id}_count.json")
         if os.path.exists(count_file):
             with open(count_file, 'r') as f:
                 return json.load(f).get('count', 1)
@@ -523,13 +528,11 @@ class TradingAgent:
     
     def _save_state(self):
         """保存状态"""
-        # 保存组合
-        portfolio_file = f"/opt/hktech-agent/data/agent_{self.agent_id}_portfolio.json"
+        portfolio_file = os.path.join(_DATA_DIR, f"agent_{self.agent_id}_portfolio.json")
         with open(portfolio_file, 'w') as f:
             json.dump(self.portfolio, f, indent=2, default=str)
         
-        # 保存天数
-        count_file = f"/opt/hktech-agent/data/agent_{self.agent_id}_count.json"
+        count_file = os.path.join(_DATA_DIR, f"agent_{self.agent_id}_count.json")
         with open(count_file, 'w') as f:
             json.dump({'count': self.day_count}, f)
     

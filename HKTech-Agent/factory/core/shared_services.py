@@ -8,9 +8,15 @@ import os
 import sys
 from typing import Dict, Optional
 
-# 添加现有代码路径
-sys.path.insert(0, '/opt/hktech-agent')
-sys.path.insert(0, '/opt/hktech-agent/active_src')
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_HERE))
+_ACTIVE_SRC = os.path.join(_PROJECT_ROOT, "active_src")
+_PROD_SRC = os.path.join(_PROJECT_ROOT, "prod", "src")
+_DATA_DIR = os.path.join(_PROJECT_ROOT, "data")
+
+for _path in [_ACTIVE_SRC, _PROD_SRC]:
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 # 延迟导入现有组件
 class SharedServices:
@@ -53,8 +59,9 @@ class SharedServices:
     def get_memory(self, agent_id: str):
         """获取Agent的记忆集合"""
         if self._memory is None:
-            # 使用现有的记忆系统
-            sys.path.insert(0, '/root/.openclaw/workspace')
+            workspace_path = os.path.expanduser("~/.openclaw/workspace")
+            if workspace_path not in sys.path:
+                sys.path.insert(0, workspace_path)
             from memory_system import LocalMemory
             self._memory = LocalMemory()
         
@@ -72,8 +79,8 @@ class SharedServices:
     def get_world_model(self):
         """获取世界模型（增强版）"""
         if self._world_model is None:
-            sys.path.insert(0, '/opt/hktech-agent/prod/src')
-            # 使用适配器，内部调用增强版实现
+            if _PROD_SRC not in sys.path:
+                sys.path.insert(0, _PROD_SRC)
             from world_model_adapter import WorldModel
             self._world_model = WorldModel()
             print("✅ WorldModel Enhanced 已加载")
@@ -82,21 +89,22 @@ class SharedServices:
     # ============== 情景记忆服务 ==============
     def get_agent_memory(self, agent_id: str):
         """获取Agent情景记忆"""
-        sys.path.insert(0, '/opt/hktech-agent/prod/src')
+        if _PROD_SRC not in sys.path:
+            sys.path.insert(0, _PROD_SRC)
         from agent_memory import AgentMemory
         
-        # 每个Agent独立的记忆集合
-        memory_dir = f"/opt/hktech-agent/data/memory/{agent_id}"
+        memory_dir = os.path.join(_DATA_DIR, "memory", agent_id)
         return AgentMemory(memory_dir)
     
     # ============== 进化引擎服务 ==============
     def get_evolution_engine(self, agent_id: str = None):
         """获取进化引擎"""
         if self._evolution_engine is None:
-            sys.path.insert(0, '/opt/hktech-agent/prod/src')
+            if _PROD_SRC not in sys.path:
+                sys.path.insert(0, _PROD_SRC)
             from evolution_engine import EvolutionEngine
             
-            data_dir = f"/opt/hktech-agent/data/evolution/{agent_id}" if agent_id else "/opt/hktech-agent/data"
+            data_dir = os.path.join(_DATA_DIR, "evolution", agent_id) if agent_id else _DATA_DIR
             os.makedirs(data_dir, exist_ok=True)
             self._evolution_engine = EvolutionEngine(data_dir)
             print("✅ EvolutionEngine 已加载")
@@ -136,10 +144,9 @@ class SharedServices:
         if agent_id not in self._risk_managers:
             from risk_manager import RiskManager
             
-            # 创建临时配置文件
             if config:
                 import json
-                config_file = f"/opt/hktech-agent/data/risk_config_{agent_id}.json"
+                config_file = os.path.join(_DATA_DIR, f"risk_config_{agent_id}.json")
                 with open(config_file, 'w') as f:
                     json.dump(config, f)
                 self._risk_managers[agent_id] = RiskManager(config_file)
@@ -152,13 +159,12 @@ class SharedServices:
     def get_notifier(self, agent_id: str, config: dict = None):
         """获取通知器"""
         if agent_id not in self._notifiers:
-            # 复用现有的飞书发送器
-            sys.path.insert(0, '/opt/hktech-agent/prod/src')
+            if _PROD_SRC not in sys.path:
+                sys.path.insert(0, _PROD_SRC)
             try:
                 from feishu_sender import FeishuSender
                 self._notifiers[agent_id] = FeishuSender()
             except ImportError:
-                # 降级：使用简化版通知器
                 self._notifiers[agent_id] = SimpleNotifier(config)
         
         return self._notifiers[agent_id]
