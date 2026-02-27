@@ -8,22 +8,30 @@ import os
 import sys
 import json
 import yaml
-from typing import Dict, Any, Optional
-from dataclasses import asdict
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict
 
-# 添加shared模块到路径
-shared_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "shared")
-if shared_path not in sys.path:
-    sys.path.insert(0, shared_path)
+# 添加项目根目录到路径
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+shared_path = os.path.join(project_root, "shared")
+factory_path = os.path.join(project_root, "factory")
+
+for path in [shared_path, factory_path]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 try:
-    import constants
+    from shared import constants
     SHARED_CONSTANTS_AVAILABLE = True
 except ImportError:
     SHARED_CONSTANTS_AVAILABLE = False
     print("⚠️ 共享常量模块不可用，使用本地定义")
+    constants = None
 
-from templates.agent_templates import get_template, AgentTemplate
+try:
+    from factory.templates import get_template, AgentTemplate
+except ImportError:
+    from templates.agent_templates import get_template, AgentTemplate
 
 
 class ConfigManager:
@@ -37,12 +45,8 @@ class ConfigManager:
     4. 验证配置完整性
     """
     
-    def __init__(self, config_dir: str = None):
+    def __init__(self, config_dir: Optional[str] = None):
         if config_dir is None:
-            # 使用项目相对路径
-            import sys
-            import os
-            # 尝试多种路径
             possible_paths = [
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "factory", "configs"),
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "factory", "configs"),
@@ -53,7 +57,6 @@ class ConfigManager:
                     config_dir = path
                     break
             if config_dir is None:
-                # 使用第一个可能的路径并创建
                 config_dir = possible_paths[0]
         
         self.config_dir = config_dir
@@ -63,7 +66,7 @@ class ConfigManager:
         self,
         agent_id: str,
         template_name: str,
-        overrides: Dict[str, Any] = None
+        overrides: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         创建Agent配置
@@ -76,8 +79,10 @@ class ConfigManager:
         Returns:
             完整配置字典
         """
-        # 1. 获取模板
         template = get_template(template_name)
+        
+        if template is None:
+            raise ValueError(f"模板不存在: {template_name}")
         
         # 2. 转换为字典
         config = {
@@ -129,12 +134,10 @@ class ConfigManager:
     def _build_stocks_config(
         self,
         stock_codes: list,
-        overrides: Dict = None
+        overrides: Optional[Dict[str, Any]] = None
     ) -> list:
         """构建股票配置"""
-        # 使用共享常量或本地回退
-        if SHARED_CONSTANTS_AVAILABLE:
-            # 从共享常量模块获取股票信息
+        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
             stocks = []
             for code in stock_codes:
                 stock_info = constants.STOCKS.get(code, {})
@@ -321,6 +324,9 @@ if __name__ == "__main__":
     # 测试加载
     print("\n4️⃣ 加载配置")
     loaded = manager.load_config("test_basic")
-    print(f"   加载成功: {loaded['name']}")
+    if loaded:
+        print(f"   加载成功: {loaded['name']}")
+    else:
+        print("   加载失败")
     
     print("\n✅ ConfigManager 测试完成！")
