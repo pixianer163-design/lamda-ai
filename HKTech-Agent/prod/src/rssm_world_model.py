@@ -10,14 +10,10 @@ import sys
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
-# 导入共享常量
-SHARED_CONSTANTS_AVAILABLE = False
-constants = None  # 默认值
-try:
-    import constants
-    SHARED_CONSTANTS_AVAILABLE = True
-except ImportError:
-    print("⚠️ 共享常量模块不可用，使用本地定义")
+# 导入统一常量
+from shared.base import get_constants
+constants = get_constants()
+print(f"✅ 统一常量模块: 可用={constants.available}")
 
 # ============================================================================
 # 动态选择实现：优先使用真实PyTorch模型，否则回退到虚拟实现
@@ -139,11 +135,8 @@ if not REAL_MODEL_LOADED:
             """准备观测向量"""
             obs_list = []
             
-            # 使用共享常量或本地定义
-            if SHARED_CONSTANTS_AVAILABLE and constants is not None:
-                stock_codes = constants.DEFAULT_STOCKS
-            else:
-                stock_codes = ["00700", "09988", "03690"]
+            # 使用统一常量
+            stock_codes = constants.DEFAULT_STOCKS
             
             for code in stock_codes:
                 if code in market_data:
@@ -260,11 +253,8 @@ class RSSMWorldModel:
         self.data_dir = data_dir
         self.enabled = True  # 始终启用（虚拟或真实）
         
-        # 使用共享常量或本地定义
-        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
-            self.stocks = constants.DEFAULT_STOCKS
-        else:
-            self.stocks = ["00700", "09988", "03690"]
+        # 使用统一常量
+        self.stocks = constants.DEFAULT_STOCKS
         
         # 检查是否有真实的 GRU 模型文件
         # Primary path: data/models/rssm_model.pt (from train_world_model.py)

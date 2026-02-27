@@ -25,14 +25,10 @@ except ImportError:
             return float
     np = MockNumpy()
 
-# 导入共享常量
-SHARED_CONSTANTS_AVAILABLE = False
-constants = None  # 默认值
-try:
-    import constants
-    SHARED_CONSTANTS_AVAILABLE = True
-except ImportError:
-    print("⚠️ 共享常量模块不可用，使用本地定义")
+# 导入统一常量
+from shared.base import get_constants
+constants = get_constants()
+print(f"✅ 统一常量模块: 可用={constants.available}")
 
 # 导入世界模型
 try:
@@ -86,11 +82,8 @@ class WorldModelIntegration:
         """
         obs = []
         
-        # 使用共享常量或本地定义
-        if SHARED_CONSTANTS_AVAILABLE and constants is not None:
-            stock_codes = constants.DEFAULT_STOCKS
-        else:
-            stock_codes = ['00700', '09988', '03690']
+        # 使用统一常量
+        stock_codes = constants.DEFAULT_STOCKS
         
         for code in stock_codes:
             if code in market_data:
