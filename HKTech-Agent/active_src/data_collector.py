@@ -292,11 +292,6 @@ class HKStockDataCollector:
         
         # 估算值
         return round(current_price * 0.98, 2), round(current_price * 0.95, 2), 50.0
-        
-        # 保存到本地
-        self._save_data(data)
-        
-        return data
     
     def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """计算技术指标"""
