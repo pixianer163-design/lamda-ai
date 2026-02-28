@@ -1,0 +1,24 @@
+{
+  "period": "weekly",
+  "total_days": 7,
+  "date_range": {
+    "start": "2026-02-22",
+    "end": "2026-02-28"
+  },
+  "averages": {
+    "hsi_change": 0.0,
+    "prediction_accuracy": 0.85,
+    "signal_win_rate": 0.7,
+    "portfolio_return": 2.48
+  },
+  "best": {
+    "prediction_accuracy": 0.85,
+    "signal_win_rate": 0.7,
+    "portfolio_return": 2.48
+  },
+  "worst": {
+    "prediction_accuracy": 0.85,
+    "signal_win_rate": 0.7,
+    "portfolio_return": 2.48
+  }
+}

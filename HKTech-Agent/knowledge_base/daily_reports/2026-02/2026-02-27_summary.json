@@ -1,0 +1,25 @@
+{
+  "date": "2026-02-27",
+  "day_count": 58,
+  "reports": {
+    "pre_market": "learning_reports/2026-02-27/pre_market.md",
+    "noon": "learning_reports/2026-02-27/noon.md",
+    "after_market": "learning_reports/2026-02-27/after_market.md"
+  },
+  "metrics": {
+    "market_performance": {
+      "hsi_change": 0.0,
+      "volume": 1200
+    },
+    "prediction_accuracy": 0.85,
+    "signal_win_rate": 0.7,
+    "portfolio_return": 2.48
+  },
+  "key_insights": [],
+  "tags": [
+    "低开高走",
+    "科技股",
+    "买入",
+    "放量"
+  ]
+}
