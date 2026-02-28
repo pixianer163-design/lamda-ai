@@ -13,6 +13,14 @@ from core.config_manager import ConfigManager
 from core.trading_agent import TradingAgent
 from templates.agent_templates import get_template, list_templates
 
+# DSL 支持
+try:
+    from .dsl_compiler import DSLCompiler
+    from .strategy_loader import StrategyLoader
+    DSL_SUPPORT = True
+except ImportError:
+    DSL_SUPPORT = False
+
 
 class AgentFactory:
     """
@@ -32,6 +40,16 @@ class AgentFactory:
             config_dir = os.path.join(project_root, "configs")
         self.config_manager = ConfigManager(config_dir)
         self.active_agents: Dict[str, TradingAgent] = {}
+        
+        # DSL 支持
+        if DSL_SUPPORT:
+            self.dsl_compiler = DSLCompiler()
+            self.strategy_loader = StrategyLoader()
+            print("✅ DSL 支持已启用")
+        else:
+            self.dsl_compiler = None
+            self.strategy_loader = None
+            print("ℹ️  DSL 支持未启用")
     
     # ============== 创建方法 ==============
     
