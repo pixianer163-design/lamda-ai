@@ -23,15 +23,15 @@ try:
         ExpressionCompiler
     )
     _textx_available = True
-except ImportError as e:
+except ImportError:
     _textx_available = False
-    get_metamodel = None
-    DSLValidator = None
-    GRAMMAR = None
-    DSLParser = None
-    StrategyCompiler = None
-    IndicatorCompiler = None
-    ExpressionCompiler = None
+    get_metamodel = None  # type: ignore
+    DSLValidator = None  # type: ignore
+    GRAMMAR = None  # type: ignore
+    DSLParser = None  # type: ignore
+    StrategyCompiler = None  # type: ignore
+    IndicatorCompiler = None  # type: ignore
+    ExpressionCompiler = None  # type: ignore
 
 
 def compile_strategy(dsl_code: str) -> str:
@@ -80,7 +80,7 @@ def validate_strategy(dsl_code: str) -> list:
         raise ImportError("textx is required. Install with: pip install textx")
     parser = DSLParser()
     try:
-        model = parser.parse(dsl_code)
+        parser.parse(dsl_code)
         return []
     except ValueError as e:
         return str(e).split(':')[1].strip().strip('[]').split(',')

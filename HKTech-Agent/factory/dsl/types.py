@@ -4,7 +4,7 @@ DSL 类型定义模块
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from enum import Enum
 import pandas as pd
 

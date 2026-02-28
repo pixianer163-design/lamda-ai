@@ -3,9 +3,8 @@ Error Reporter - DSL 错误报告器
 提供错误定位、代码片段显示和修复建议
 """
 
-import re
 from difflib import get_close_matches
-from typing import List, Optional
+from typing import List
 from .types import CompileError
 
 
@@ -56,7 +55,7 @@ class ErrorReporter:
             
             if line_num == line_no:
                 lines.append(f"{prefix}{line_num:4} | {content}")
-                col = error_column = getattr(self, '_current_column', 1)
+                col = getattr(self, '_current_column', 1)
                 lines.append(f"{indicator}    | {' ' * (col - 1)}^")
             else:
                 lines.append(f"{prefix}{line_num:4} | {content}")

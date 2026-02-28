@@ -3,7 +3,6 @@ DSL Compiler - Transforms DSL to Python Code
 DSL编译器 - 将DSL转换为Python代码
 """
 
-import ast
 import re
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -342,7 +341,7 @@ class StrategyCompiler:
     
     def _validate_expression(self, expr, defined_indicators: set) -> List[CompileError]:
         """验证表达式中的指标引用"""
-        errors = []
+        errors: List[CompileError] = []
         
         if expr is None:
             return errors

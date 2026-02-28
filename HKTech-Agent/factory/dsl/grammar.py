@@ -10,8 +10,8 @@ except ImportError:
         "textx is required for DSL parsing. "
         "Install it with: pip install textx"
     )
-from typing import Dict, Any, List, Optional
-import inspect
+from typing import List
+
 
 # DSL Grammar Definition
 GRAMMAR = r'''

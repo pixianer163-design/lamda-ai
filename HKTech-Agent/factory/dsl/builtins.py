@@ -5,7 +5,7 @@ DSL 内置函数库 - 技术指标和工具函数
 
 import numpy as np
 import pandas as pd
-from typing import Union, List, Optional
+from typing import Union
 
 
 # ============================================================================
