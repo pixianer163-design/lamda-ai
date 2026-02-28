@@ -1,0 +1,65 @@
+{
+  "version": "2.0",
+  "timezone": "Asia/Shanghai",
+  "tasks": [
+    {
+      "id": "hktech_daily_run",
+      "name": "恒生 Agent 每日运行",
+      "description": "恒生 Agent 核心流程：数据采集、LLM 分析、世界模型预测（云端可运行）",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "expression": "30 9 * * 1-5",
+        "timezone": "Asia/Shanghai"
+      },
+      "compensation": {
+        "enabled": true,
+        "window_minutes": 60,
+        "simplified_threshold_minutes": 30
+      },
+      "execution": {
+        "timeout_seconds": 600,
+        "retry_count": 2,
+        "retry_delay_seconds": 120,
+        "command": "cd /opt/hktech-agent/HKTech-Agent/prod && bash run_prod.sh",
+        "log_path": "/opt/hktech-agent/HKTech-Agent/prod/logs/scheduler_run.log"
+      }
+    },
+    {
+      "id": "hktech_report_push",
+      "name": "恒生 Agent 报告推送",
+      "description": "读取分析结果并推送到飞书群组（本地运行）",
+      "enabled": true,
+      "schedule": {
+        "type": "cron",
+        "expression": "35 9 * * 1-5",
+        "timezone": "Asia/Shanghai"
+      },
+      "compensation": {
+        "enabled": true,
+        "window_minutes": 120,
+        "simplified_threshold_minutes": 60
+      },
+      "execution": {
+        "timeout_seconds": 120,
+        "retry_count": 2,
+        "retry_delay_seconds": 10,
+        "command": "cd /opt/hktech-agent/HKTech-Agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && python3 src/report_pusher.py",
+        "log_path": "/opt/hktech-agent/HKTech-Agent/prod/logs/report_push.log",
+        "dependencies": ["hktech_daily_run"]
+      }
+    }
+  ],
+  "logging": {
+    "enabled": true,
+    "log_path": "/root/.openclaw/workspace/logs/scheduler/scheduler.log",
+    "level": "INFO",
+    "max_size_mb": 10,
+    "backup_count": 5
+  },
+  "state": {
+    "enabled": true,
+    "state_path": "/root/.openclaw/workspace/logs/scheduler/state.json",
+    "execution_log_path": "/root/.openclaw/workspace/logs/scheduler/executions.jsonl"
+  }
+}
