@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 
 class CompilationCache:
