@@ -33,7 +33,8 @@ class LearningReportUploader:
         self.access_key_id = os.getenv('ALIYUN_ACCESS_KEY_ID')
         self.access_key_secret = os.getenv('ALIYUN_ACCESS_KEY_SECRET')
         self.endpoint = os.getenv('ALIYUN_OSS_ENDPOINT', 'oss-cn-beijing.aliyuncs.com')
-        self.bucket_name = os.getenv('ALIYUN_OSS_BUCKET', 'hktech-agent-models')
+        # 知识库使用独立的 Bucket
+        self.bucket_name = os.getenv('ALIYUN_KNOWLEDGE_BUCKET', 'knowledge-base')
         
         # 验证配置
         if not all([self.access_key_id, self.access_key_secret]):
