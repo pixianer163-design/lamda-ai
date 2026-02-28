@@ -5,7 +5,6 @@ DSL编译器 - 将DSL转换为Python代码
 
 import ast
 import re
-import textwrap
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -502,21 +501,33 @@ class {class_name}:
 {self._compile_exit_calls(strategy.exit_rules)}
         return None
     
-    def calculate_position_size(self, capital: float, confidence: float) -> float:
-        """Calculate position size based on risk management"""
+    def calculate_position_size(self, capital: float, confidence: float, data: Optional[pd.DataFrame] = None) -> float:
+        """
+        Calculate position size based on risk management
+        
+        Args:
+            capital: Total capital available
+            confidence: Signal confidence (0-1)
+            data: Optional market data for price lookup
+        
+        Returns:
+            Position size (number of shares)
+        """
         risk_amount = capital * self.risk_per_trade
         
         if self.position > 0:
             # Already in position, check if we should add
             max_position_value = capital * self.max_position
-            current_value = self.position * data['close'].iloc[-1]
+            current_price = data['close'].iloc[-1] if data is not None else 100.0
+            current_value = self.position * current_price
             available = max_position_value - current_value
             return min(available, risk_amount * confidence * 10)
         else:
             # New position
             max_position_value = capital * self.max_position
             position_value = min(max_position_value, risk_amount * confidence * 10)
-            return position_value / data['close'].iloc[-1]
+            current_price = data['close'].iloc[-1] if data is not None else 100.0
+            return position_value / current_price
     
     def update_position(self, signal: Signal):
         """Update internal position tracking"""

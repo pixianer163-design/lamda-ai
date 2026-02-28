@@ -1,14 +1,18 @@
 #!/bin/bash
-# 恒生 Agent 定时任务调度器
-# 使用 Linux 系统级 cron，更可靠
+# 恒生 Agent 定时任务调度器 - 简化版 v2
+# 直接调用恒生 Agent 现有脚本，不需要子 agent
 
-SCRIPT_DIR="/root/.openclaw/workspace/Lamda-ai/HKTech-Agent/scripts"
 LOG_DIR="/root/.openclaw/workspace/logs/cron"
-
-# 创建日志目录
 mkdir -p "$LOG_DIR"
 
-# 获取当前时间戳
+# 加载环境变量（修复 LLM 不通的问题 + 世界模型 v2）
+if [ -f "/opt/hktech-agent/config/config.env" ]; then
+    set -a
+    source /opt/hktech-agent/config/config.env
+    set +a
+    echo "✅ 已加载环境变量 (DEEPSEEK_API_KEY, WORLD_MODEL_VERSION=$WORLD_MODEL_VERSION)"
+fi
+
 TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 DATE_STAMP=$(date +"%Y-%m-%d")
 
@@ -19,59 +23,46 @@ log() {
 case "$1" in
     "morning_briefing")
         log "🌅 开始执行：盘前学习"
-        # 使用 openclaw sessions_spawn 执行任务
-        openclaw sessions spawn --label "盘前学习 - $DATE_STAMP" --model "bailian/qwen3.5-plus" --timeout 300 \
-            "执行盘前学习任务：
-            1. 获取 overnight 新闻和全球市场动态
-            2. 分析美股/欧股/日股收盘对港股的影响
-            3. 阅读当天重要财经新闻（用 LLM 提取情绪信号）
-            4. 更新市场日历，确认今日无重大事件
-            5. 生成开盘策略建议
-            6. 推送到飞书双群
-            
-            输出格式：
-            🌅 盘前学习报告 - Day X
-            📰 全球 markets overnight
-            📊 港股开盘策略
-            ⚠️ 风险提示"
+        # 调用恒生 Agent 生产脚本
+        cd /opt/hktech-agent/HKTech-Agent/prod && bash run_prod.sh 2>&1 | tee -a "$LOG_DIR/morning_$DATE_STAMP.log"
+        # 生成 Web 面板数据和动态 HTML
+        cd /opt/hktech-agent && python3 src/generate_web_data.py 2>&1 | tee -a "$LOG_DIR/web_data_$DATE_STAMP.log"
+        cd /opt/hktech-agent && python3 src/generate_dynamic_html.py 2>&1 | tee -a "$LOG_DIR/web_html_$DATE_STAMP.log"
         log "✅ 盘前学习完成"
         ;;
     
     "noon_learning")
         log "🌞 开始执行：午间学习"
-        openclaw sessions spawn --label "午间学习 - $DATE_STAMP" --model "bailian/qwen3.5-plus" --timeout 300 \
-            "执行午间学习任务：
-            1. 获取上午港股收盘数据（腾讯/阿里/美团/小米/快手/京东）
-            2. 分析上午行情特征
-            3. 对比开盘预测 vs 实际走势
-            4. 更新持仓盈亏
-            5. 调整下午策略
-            6. 推送到飞书双群"
+        # 1. 运行主程序生成数据 (带环境变量)
+        cd /opt/hktech-agent/HKTech-Agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && timeout 180 python3 src/llm_enhanced_agent.py 2>&1 | tee -a "$LOG_DIR/noon_$DATE_STAMP.log"
+        # 2. 生成 Web 面板数据和动态 HTML
+        cd /opt/hktech-agent && python3 src/generate_web_data.py 2>&1 | tee -a "$LOG_DIR/web_data_$DATE_STAMP.log"
+        cd /opt/hktech-agent && python3 src/generate_dynamic_html.py 2>&1 | tee -a "$LOG_DIR/web_html_$DATE_STAMP.log"
+        # 3. 推送报告
+        cd /opt/hktech-agent/HKTech-Agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && python3 src/report_pusher.py 2>&1 | tee -a "$LOG_DIR/noon_push_$DATE_STAMP.log"
         log "✅ 午间学习完成"
         ;;
     
     "afternoon_learning")
         log "🌙 开始执行：盘后学习"
-        openclaw sessions spawn --label "盘后学习 - $DATE_STAMP" --model "bailian/qwen3.5-plus" --timeout 300 \
-            "执行盘后学习任务：
-            1. 获取全天港股收盘数据
-            2. 执行回测验证
-            3. 更新世界模型
-            4. 记录交易日志
-            5. 生成全天学习报告
-            6. 推送到飞书双群"
+        # 1. 运行主程序生成数据 (带环境变量)
+        cd /opt/hktech-agent/HKTech-Agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && timeout 180 python3 src/llm_enhanced_agent.py 2>&1 | tee -a "$LOG_DIR/afternoon_$DATE_STAMP.log"
+        # 2. 更新 Portfolio (新增)
+        cd /opt/hktech-agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && python3 src/update_portfolio.py 2>&1 | tee -a "$LOG_DIR/portfolio_$DATE_STAMP.log"
+        # 3. 生成 Web 面板数据和动态 HTML
+        cd /opt/hktech-agent && python3 src/generate_web_data.py 2>&1 | tee -a "$LOG_DIR/web_data_$DATE_STAMP.log"
+        cd /opt/hktech-agent && python3 src/generate_dynamic_html.py 2>&1 | tee -a "$LOG_DIR/web_html_$DATE_STAMP.log"
+        # 3. 推送报告 (内部群)
+        cd /opt/hktech-agent/HKTech-Agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && python3 src/report_pusher.py 2>&1 | tee -a "$LOG_DIR/afternoon_push_$DATE_STAMP.log"
+        # 4. 推送投资人报告 (外部群)
+        cd /opt/hktech-agent/prod && source /opt/hktech-agent/venv_rl/bin/activate && python3 src/investor_report.py 2>&1 | tee -a "$LOG_DIR/investor_push_$DATE_STAMP.log"
         log "✅ 盘后学习完成"
         ;;
     
     "daily_briefing")
         log "📬 开始执行：AI 技术学习简报"
-        openclaw sessions spawn --label "AI 技术学习简报 - $DATE_STAMP" --model "bailian/qwen3.5-plus" --timeout 300 \
-            "生成并推送 AI 技术学习简报（网页版）：
-            1. 获取今日日期和星期，确定本周主题
-            2. 搜集 arXiv 最新论文
-            3. 生成深度简报
-            4. 创建 HTML 网页版
-            5. 推送到飞书双群（发送网页链接）"
+        # 使用网页版简报脚本
+        cd /root/.openclaw/workspace && python3 reports/send_briefing_webpage.py 2>&1 | tee -a "$LOG_DIR/briefing_$DATE_STAMP.log"
         log "✅ AI 简报完成"
         ;;
     
