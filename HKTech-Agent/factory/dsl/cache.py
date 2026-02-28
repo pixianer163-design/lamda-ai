@@ -82,7 +82,13 @@ class CompilationCache:
         self._misses += 1
         self._save_metadata()
     
-    def clear_cache(self):
+    def clear_cache(self) -> None:
+        """
+        Clear all cached code
+        
+        Removes all .py files from cache directory
+        and resets metadata
+        """
         """清空缓存"""
         for cache_key in self.cache:
             cache_file = self.cache_dir / f"{cache_key}.py"
@@ -96,7 +102,17 @@ class CompilationCache:
         if self.metadata_file.exists():
             self.metadata_file.unlink()
     
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics
+        
+        Returns:
+            Dictionary with cache stats:
+            - hits: Number of cache hits
+            - misses: Number of cache misses
+            - hit_rate: Hit rate percentage (0-100)
+            - cached_files: Number of cached files
+        """
         """获取缓存统计信息"""
         total = self._hits + self._misses
         hit_rate = self._hits / total if total > 0 else 0.0

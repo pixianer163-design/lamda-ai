@@ -56,6 +56,21 @@ class StrategyLoader:
         **kwargs
     ) -> Any:
         """
+        Load a strategy from file
+        
+        Args:
+            strategy_path: Path to strategy file (.dsl or .py)
+            strategy_type: 'dsl', 'python', or 'auto'
+            **kwargs: Strategy parameters
+        
+        Returns:
+            Strategy instance
+        
+        Raises:
+            FileNotFoundError: If strategy file not found
+            ValueError: If strategy type not supported
+        """
+        """
         加载策略
         
         Args:
@@ -119,6 +134,18 @@ class StrategyLoader:
         return strategy
     
     def reload(self, strategy_name: str) -> Any:
+        """
+        Hot reload a strategy
+        
+        Args:
+            strategy_name: Strategy name to reload
+        
+        Returns:
+            Reloaded strategy instance
+        
+        Raises:
+            ValueError: If strategy not loaded
+        """
         """
         热重载策略
         
@@ -192,6 +219,16 @@ class StrategyLoader:
     
     def _load_dsl_strategy(self, dsl_file: str, **kwargs) -> Any:
         """
+        Load and compile a DSL strategy
+        
+        Args:
+            dsl_file: Path to DSL file
+            **kwargs: Strategy parameters
+        
+        Returns:
+            Compiled strategy instance
+        """
+        """
         加载 DSL 策略
         
         Args:
@@ -227,6 +264,16 @@ class StrategyLoader:
         return instance
     
     def _load_python_strategy(self, py_file: str, **kwargs) -> Any:
+        """
+        Load a Python strategy
+        
+        Args:
+            py_file: Path to Python file
+            **kwargs: Strategy parameters
+        
+        Returns:
+            Strategy instance
+        """
         """
         加载 Python 策略
         

@@ -130,7 +130,7 @@ class IndicatorCompiler:
 '''
     }
     
-    def compile(self, indicator, strategy_params=None) -> str:
+    def compile(self, indicator: Any, strategy_params: Optional[List[str]] = None) -> str:
         """编译单个指标"""
         ind_type = indicator.indicator_type
         name = indicator.name
@@ -169,7 +169,7 @@ class ExpressionCompiler:
         self.strategy_params = strategy_params or []
         self.indicator_names = indicator_names or []
     
-    def compile(self, expr, context: Dict[str, Any] = None) -> str:
+    def compile(self, expr: Any, context: Optional[Dict[str, Any]] = None) -> str:
         """编译表达式为Python代码"""
         if expr is None:
             return "None"
@@ -549,11 +549,30 @@ class {class_name}:
         return code
     
     def _to_camel_case(self, name: str) -> str:
+        """
+        Convert name to CamelCase
+        
+        Args:
+            name: Name to convert (snake_case or kebab-case)
+        
+        Returns:
+            CamelCase string
+        """
         """转换名称为驼峰命名法"""
         parts = name.replace('-', '_').split('_')
         return ''.join(p.capitalize() for p in parts)
     
-    def _compile_condition(self, condition, index: int) -> str:
+    def _compile_condition(self, condition: Any, index: int) -> str:
+        """
+        Compile a condition to Python method
+        
+        Args:
+            condition: Condition object from DSL parser
+            index: Condition index
+        
+        Returns:
+            Python method code
+        """
         """编译条件为方法"""
         triggers = []
         for trigger in condition.triggers:
@@ -587,7 +606,16 @@ class {class_name}:
 '''
         return code
     
-    def _compile_condition_calls(self, conditions) -> str:
+    def _compile_condition_calls(self, conditions: List[Any]) -> str:
+        """
+        Generate code to call all conditions
+        
+        Args:
+            conditions: List of condition objects
+        
+        Returns:
+            Python code for condition calls
+        """
         """编译条件调用代码"""
         calls = []
         for i, _ in enumerate(conditions):
@@ -598,7 +626,17 @@ class {class_name}:
             return signal''')
         return '\n'.join(calls)
     
-    def _compile_exit_rule(self, exit_rule, index: int) -> str:
+    def _compile_exit_rule(self, exit_rule: Any, index: int) -> str:
+        """
+        Compile an exit rule to Python method
+        
+        Args:
+            exit_rule: Exit rule object from DSL parser
+            index: Exit rule index
+        
+        Returns:
+            Python method code
+        """
         """编译退出规则"""
         condition_code = self.expr_compiler.compile(exit_rule.condition)
         exit_type = exit_rule.exit_type if hasattr(exit_rule, 'exit_type') else 'SIGNAL'
@@ -618,7 +656,16 @@ class {class_name}:
 '''
         return code
     
-    def _compile_exit_calls(self, exit_rules) -> str:
+    def _compile_exit_calls(self, exit_rules: List[Any]) -> str:
+        """
+        Generate code to call all exit rules
+        
+        Args:
+            exit_rules: List of exit rule objects
+        
+        Returns:
+            Python code for exit rule calls
+        """
         """编译退出规则调用代码"""
         calls = []
         for i, _ in enumerate(exit_rules):
@@ -628,7 +675,16 @@ class {class_name}:
             return signal''')
         return '\n'.join(calls)
     
-    def _compile_position_management(self, pos_mgmt) -> str:
+    def _compile_position_management(self, pos_mgmt: Any) -> str:
+        """
+        Compile position management configuration
+        
+        Args:
+            pos_mgmt: Position management object from DSL parser
+        
+        Returns:
+            Python code for position management
+        """
         """编译仓位管理配置"""
         max_pos = self.expr_compiler.compile(pos_mgmt.max_position.value) if hasattr(pos_mgmt.max_position, 'value') else "0.95"
         risk = self.expr_compiler.compile(pos_mgmt.risk_per_trade.value) if hasattr(pos_mgmt.risk_per_trade, 'value') else "0.02"
