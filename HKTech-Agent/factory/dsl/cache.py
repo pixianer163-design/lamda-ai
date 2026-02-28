@@ -12,9 +12,11 @@ from typing import Optional, Dict, Any
 class CompilationCache:
     """DSL编译缓存管理器"""
     
-    def __init__(self, cache_dir: str = ".dsl_cache"):
+    def __init__(self, cache_dir: str = ".dsl_cache", expiry_days: int = 7):
         self.cache_dir = Path(cache_dir)
         self.metadata_file = self.cache_dir / "cache_metadata.json"
+        self.expiry_days = expiry_days
+        self.expiry_seconds = expiry_days * 24 * 3600
         self.cache: Dict[str, dict] = {}
         self._hits = 0
         self._misses = 0
