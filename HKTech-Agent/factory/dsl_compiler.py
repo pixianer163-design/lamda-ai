@@ -17,9 +17,9 @@ from typing import Optional, Dict, Any
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dsl.compiler import DSLParser
-from dsl.cache import CompilationCache
-from dsl.types import CompileError
+from .dsl.compiler import DSLParser
+from .dsl.cache import CompilationCache
+from .dsl.types import CompileError
 
 
 class DSLCompiler:
