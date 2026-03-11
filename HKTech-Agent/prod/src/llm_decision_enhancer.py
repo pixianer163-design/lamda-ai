@@ -16,6 +16,7 @@ SHARED_CONSTANTS_AVAILABLE = False
 constants = None  # 默认值
 try:
     import constants
+
     SHARED_CONSTANTS_AVAILABLE = True
 except ImportError:
     print("⚠️ 共享常量模块不可用，使用本地定义")
@@ -43,7 +44,7 @@ class LLMDecisionEnhancer:
             self.stock_names = {
                 "00700": "腾讯控股",
                 "09988": "阿里巴巴",
-                "03690": "美团-W"
+                "03690": "美团-W",
             }
 
         print(f"🧠 LLM决策增强器初始化")
@@ -52,12 +53,14 @@ class LLMDecisionEnhancer:
     # Public API
     # ------------------------------------------------------------------
 
-    def enhance_decision(self,
-                         base_decision: Dict[str, Any],
-                         market_data: Dict[str, Dict],
-                         portfolio: Dict[str, Any],
-                         prediction: Optional[Dict[str, Any]] = None,
-                         llm_signals: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+    def enhance_decision(
+        self,
+        base_decision: Dict[str, Any],
+        market_data: Dict[str, Dict],
+        portfolio: Dict[str, Any],
+        prediction: Optional[Dict[str, Any]] = None,
+        llm_signals: Optional[Dict[str, float]] = None,
+    ) -> Dict[str, Any]:
         """
         增强基础决策，提供更智能的分析。
 
@@ -105,16 +108,27 @@ class LLMDecisionEnhancer:
     # DeepSeek API
     # ------------------------------------------------------------------
 
-    def _call_deepseek_decision(self, stock_code: str, technical_signal: dict,
-                                predicted_return: float, sentiment: float) -> dict:
+    def _call_deepseek_decision(
+        self,
+        stock_code: str,
+        technical_signal: dict,
+        predicted_return: float,
+        sentiment: float,
+    ) -> dict:
         """调用 DeepSeek 做单股决策，失败时返回基于规则的 fallback"""
         import requests
 
         api_key = os.environ.get("DEEPSEEK_API_KEY", "")
         if not api_key:
-            return self._rule_based_decision(technical_signal, predicted_return, sentiment)
+            return self._rule_based_decision(
+                technical_signal, predicted_return, sentiment
+            )
 
-        stock_name = self.stock_names.get(stock_code, stock_code) if hasattr(self, "stock_names") else stock_code
+        stock_name = (
+            self.stock_names.get(stock_code, stock_code)
+            if hasattr(self, "stock_names")
+            else stock_code
+        )
         rsi = technical_signal.get("rsi", 50)
         trend = technical_signal.get("trend", "中性")
         prompt = (
@@ -130,30 +144,38 @@ class LLMDecisionEnhancer:
         try:
             resp = requests.post(
                 "https://api.deepseek.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}",
-                         "Content-Type": "application/json"},
-                json={"model": "deepseek-chat",
-                      "messages": [{"role": "user", "content": prompt}],
-                      "temperature": 0.1, "max_tokens": 200},
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 200,
+                },
                 timeout=30,
             )
             content = resp.json()["choices"][0]["message"]["content"].strip()
             if "{" in content:
-                content = content[content.index("{"):content.rindex("}") + 1]
+                content = content[content.index("{") : content.rindex("}") + 1]
             result = json.loads(content)
             result["action"] = result["action"].upper()
             result["confidence"] = max(0.0, min(1.0, float(result["confidence"])))
             return result
         except Exception as e:
             print(f"⚠️ DeepSeek 决策 API 失败 ({stock_code}): {e}")
-            return self._rule_based_decision(technical_signal, predicted_return, sentiment)
+            return self._rule_based_decision(
+                technical_signal, predicted_return, sentiment
+            )
 
     # ------------------------------------------------------------------
     # Rule-based fallback (no random)
     # ------------------------------------------------------------------
 
-    def _rule_based_decision(self, technical_signal: dict,
-                              predicted_return: float, sentiment: float) -> dict:
+    def _rule_based_decision(
+        self, technical_signal: dict, predicted_return: float, sentiment: float
+    ) -> dict:
         """规则 fallback（无随机数）"""
         confidence = technical_signal.get("confidence", 0.5)
         world_score = max(0.0, min(1.0, predicted_return * 10 + 0.5))
@@ -164,22 +186,51 @@ class LLMDecisionEnhancer:
             action = "SELL"
         else:
             action = "HOLD"
-        return {"action": action, "confidence": round(score, 3),
-                "reasoning": "基于技术指标+预测+情感的规则决策", "risk_level": "MEDIUM"}
+        return {
+            "action": action,
+            "confidence": round(score, 3),
+            "reasoning": "基于技术指标+预测+情感的规则决策",
+            "risk_level": "MEDIUM",
+        }
 
     # ------------------------------------------------------------------
     # Weighted signal merge
     # ------------------------------------------------------------------
 
-    def _merge_signals(self, tech_confidence: float, tech_action: str,
-                       world_confidence: float, world_action: str,
-                       sentiment_score: float) -> dict:
-        """三路信号加权合并: tech×0.4 + world×0.3 + sentiment×0.3"""
-        action_score = {"buy": 1.0, "BUY": 1.0, "sell": 0.0, "SELL": 0.0,
-                        "hold": 0.5, "HOLD": 0.5}
+    def _merge_signals(
+        self,
+        tech_confidence: float,
+        tech_action: str,
+        world_confidence: float,
+        world_action: str,
+        sentiment_score: float,
+        change_pct: float = 0.0,
+    ) -> dict:
+        """三路信号加权合并: tech×0.4 + world×0.3 + sentiment×0.3
+
+        Args:
+            tech_confidence: 技术指标置信度
+            tech_action: 技术指标动作 (buy/sell/hold)
+            world_confidence: 世界模型置信度
+            world_action: 世界模型动作
+            sentiment_score: 情绪分数
+            change_pct: 涨跌幅，用于置信度校正
+        """
+        action_score = {
+            "buy": 1.0,
+            "BUY": 1.0,
+            "sell": 0.0,
+            "SELL": 0.0,
+            "hold": 0.5,
+            "HOLD": 0.5,
+        }
         tech_s = action_score.get(tech_action, 0.5) * tech_confidence
         world_s = action_score.get(world_action, 0.5) * world_confidence
         merged = tech_s * 0.4 + world_s * 0.3 + sentiment_score * 0.3
+
+        if abs(change_pct) > 3.0:
+            merged = min(merged, 0.9) if change_pct > 0 else max(merged, 0.1)
+
         if merged > 0.6:
             action = "buy"
         elif merged < 0.4:
@@ -192,7 +243,9 @@ class LLMDecisionEnhancer:
     # Internal analysis helpers (deterministic)
     # ------------------------------------------------------------------
 
-    def _simulate_llm_analysis(self, base_decision, market_data, portfolio, prediction, llm_signals):
+    def _simulate_llm_analysis(
+        self, base_decision, market_data, portfolio, prediction, llm_signals
+    ):
         """确定性 LLM 分析过程（无随机数）"""
         analysis_parts = []
 
@@ -206,7 +259,9 @@ class LLMDecisionEnhancer:
                 stock_analysis = self._analyze_stock(
                     code, action, confidence, market_data.get(code, {})
                 )
-                analysis_parts.append(f"📈 {self.stock_names.get(code, code)}: {stock_analysis}")
+                analysis_parts.append(
+                    f"📈 {self.stock_names.get(code, code)}: {stock_analysis}"
+                )
 
         risk_analysis = self._analyze_portfolio_risk(portfolio, market_data)
         analysis_parts.append(f"🛡️  风险分析: {risk_analysis}")
@@ -226,8 +281,14 @@ class LLMDecisionEnhancer:
 
         # 置信度由情感信号或默认值确定（无随机）
         if llm_signals:
-            sentiment_values = [v for k, v in llm_signals.items() if k.endswith("_sentiment")]
-            overall_confidence = sum(sentiment_values) / len(sentiment_values) if sentiment_values else 0.7
+            sentiment_values = [
+                v for k, v in llm_signals.items() if k.endswith("_sentiment")
+            ]
+            overall_confidence = (
+                sum(sentiment_values) / len(sentiment_values)
+                if sentiment_values
+                else 0.7
+            )
         else:
             overall_confidence = 0.7
 
@@ -239,9 +300,13 @@ class LLMDecisionEnhancer:
             "suggested_position": 0.5,
         }
 
-    def _generate_final_decision(self, base_decision: Dict, llm_output: Dict,
-                                  market_data: Dict,
-                                  llm_signals: Optional[Dict[str, float]] = None) -> Dict:
+    def _generate_final_decision(
+        self,
+        base_decision: Dict,
+        llm_output: Dict,
+        market_data: Dict,
+        llm_signals: Optional[Dict[str, float]] = None,
+    ) -> Dict:
         """生成最终决策，使用加权信号合并（无随机数）"""
         final_decision = {}
 
@@ -263,7 +328,7 @@ class LLMDecisionEnhancer:
             # 获取涨跌幅（用于置信度校正）
             stock_data = market_data.get(code, {})
             change_pct = stock_data.get("change_pct", 0.0)
-            
+
             # 加权合并（传入涨跌幅）
             merged = self._merge_signals(
                 tech_confidence=tech_confidence,
@@ -309,7 +374,9 @@ class LLMDecisionEnhancer:
                 return f"市场震荡，平均涨跌{avg_change:.1f}%"
         return "市场平稳"
 
-    def _analyze_stock(self, code: str, action: str, confidence: float, stock_data: Dict) -> str:
+    def _analyze_stock(
+        self, code: str, action: str, confidence: float, stock_data: Dict
+    ) -> str:
         """分析单只股票"""
         analysis = f"建议{action}，置信度{confidence:.0%}"
 
@@ -363,7 +430,9 @@ class LLMDecisionEnhancer:
             return f"情绪分布: {', '.join(sentiments)}"
         return "情绪信号缺失"
 
-    def _generate_reason(self, code: str, action: str, confidence: float, stock_data: Dict) -> str:
+    def _generate_reason(
+        self, code: str, action: str, confidence: float, stock_data: Dict
+    ) -> str:
         """生成决策理由（确定性，无随机）"""
         action_lower = action.lower()
         reason_map = {
@@ -415,7 +484,9 @@ class LLMDecisionEnhancer:
         except Exception as e:
             print(f"   ⚠️ 保存决策记录失败: {e}")
 
-    def _calculate_enhanced_confidence(self, base_confidence: float, sentiment: float) -> float:
+    def _calculate_enhanced_confidence(
+        self, base_confidence: float, sentiment: float
+    ) -> float:
         """计算增强后的置信度: base×0.5 + sentiment×0.5"""
         enhanced = base_confidence * 0.5 + sentiment * 0.5
         return max(0.0, min(1.0, enhanced))
@@ -445,7 +516,9 @@ if __name__ == "__main__":
         "total_value": 21000,
     }
 
-    enhanced = enhancer.enhance_decision(test_base_decision, test_market_data, test_portfolio)
+    enhanced = enhancer.enhance_decision(
+        test_base_decision, test_market_data, test_portfolio
+    )
     print(f"\n最终决策:")
     for code, dec in enhanced["final_decision"].items():
         print(f"  {code}: {dec['action']} conf={dec['confidence']:.4f}")
