@@ -68,3 +68,16 @@ test_fix_stage1.py
 test_imports.py
 test_vectorbt_import.py
 test_model_load.py
+.oss_cache/
+*.bak
+active_logs/
+active_src/
+__pycache__/
+*.pyc
+.env
+config/*.env
+venv/
+venv_rl/
+node_modules/
+.DS_Store
+*.log

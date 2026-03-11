@@ -260,13 +260,18 @@ class LLMDecisionEnhancer:
             world_confidence = llm_output.get("confidence", 0.5)
             world_action = tech_action  # 默认与技术动作一致
 
-            # 加权合并
+            # 获取涨跌幅（用于置信度校正）
+            stock_data = market_data.get(code, {})
+            change_pct = stock_data.get("change_pct", 0.0)
+            
+            # 加权合并（传入涨跌幅）
             merged = self._merge_signals(
                 tech_confidence=tech_confidence,
                 tech_action=tech_action,
                 world_confidence=world_confidence,
                 world_action=world_action,
                 sentiment_score=sentiment_score,
+                change_pct=change_pct,
             )
 
             reason = self._generate_reason(

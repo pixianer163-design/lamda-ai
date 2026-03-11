@@ -15,7 +15,7 @@ if [ -f "/opt/hktech-agent/config/config.env" ]; then
 fi
 
 # 设置环境变量
-export PYTHONPATH="$DIR/src:$DIR/../active_src:$DIR/../shared:$PYTHONPATH"
+export PYTHONPATH="$DIR/src:$DIR/../active_src:$DIR/..:$PYTHONPATH"
 export AGENT_ENV="prod"
 export AGENT_LOG_DIR="$DIR/logs"
 

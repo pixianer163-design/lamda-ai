@@ -64,6 +64,18 @@ STOCKS: Dict[str, Dict[str, Any]] = {
         "market_cap_rank": 4,
         "description": "中国领先的智能手机和IoT平台公司"
     },
+    "01024": {
+        "name": "快手-W",
+        "name_en": "Kuaishou Technology",
+        "sector": "互联网",
+        "industry": "短视频",
+        "yf_symbol": "1024.HK",
+        "sina_symbol": "hk01024",
+        "exchange": "HKEX",
+        "currency": "HKD",
+        "market_cap_rank": 5,
+        "description": "中国领先的短视频和直播平台"
+    },
     "09618": {
         "name": "京东集团-SW",
         "name_en": "JD.com",
@@ -73,7 +85,7 @@ STOCKS: Dict[str, Dict[str, Any]] = {
         "sina_symbol": "hk09618",
         "exchange": "HKEX",
         "currency": "HKD",
-        "market_cap_rank": 5,
+        "market_cap_rank": 6,
         "description": "中国领先的技术驱动型电商和零售基础设施服务商"
     },
     "09999": {
@@ -93,8 +105,8 @@ STOCKS: Dict[str, Dict[str, Any]] = {
 # 股票名称的简化映射（兼容现有代码）
 STOCK_NAMES = {code: info["name"] for code, info in STOCKS.items()}
 
-# 默认股票列表（核心三只）
-DEFAULT_STOCKS = ["00700", "09988", "03690"]
+# 默认股票列表（恒生科技 6 只）
+DEFAULT_STOCKS = ["00700", "09988", "03690", "01810", "01024", "09618"]
 
 # 扩展股票列表（全部可用股票）
 ALL_STOCKS = list(STOCKS.keys())

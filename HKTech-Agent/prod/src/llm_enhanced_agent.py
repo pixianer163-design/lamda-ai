@@ -163,7 +163,10 @@ class LLMEnhancedAgent:
         if data_dir is None:
             import os
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            data_dir = os.path.join(current_dir, '../../data')
+            # 使用统一数据目录（云端部署兼容）
+            data_dir = os.environ.get('DATA_DIR', '/opt/hktech-agent/data')
+            if not os.path.exists(data_dir):
+                data_dir = os.path.join(current_dir, '../../data')
         self.data_dir = data_dir
         
         print("🚀 初始化 LLM增强版Agent...")
@@ -217,20 +220,35 @@ class LLMEnhancedAgent:
         """加载市场数据 - 使用真实数据源"""
         import sys
         import os
-        # 计算正确的active_src路径
+        import logging
+        
+        # 计算正确的路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         active_src_path = os.path.join(current_dir, '../../active_src')
-        sys.path.insert(0, active_src_path)
+        hktech_src_path = os.path.join(current_dir, '../../../src')
         
+        # 确保路径在 sys.path 中
+        for p in [active_src_path, hktech_src_path]:
+            if p not in sys.path:
+                sys.path.insert(0, p)
+        
+        market_data = {}
+        data_source_used = None
+        
+        # 尝试1: 使用 CN 数据采集器 (腾讯财经API)
         try:
-            from data_collector import HKStockDataCollector
+            from data_collector_cn import HKStockDataCollectorCN
             
-            print("   🌐 正在从实时数据源获取...")
-            collector = HKStockDataCollector(self.data_dir)
+            print("   🌐 正在从腾讯财经API获取...")
+            collector = HKStockDataCollectorCN()
             data = collector.get_daily_data(days=30)
             
+            # 检查是否使用了 mock 数据
+            if collector._mock_data_used:
+                print("   ⚠️ 警告: 数据采集使用了 fallback mock 数据!")
+                logging.warning("数据采集 fallback 到 mock 数据，决策生成被拒绝!")
+                
             # 转换为内部格式
-            market_data = {}
             for code, stock_info in data.items():
                 market_data[code] = {
                     "price": stock_info.get("price", 0),
@@ -241,40 +259,97 @@ class LLMEnhancedAgent:
                     "volume": stock_info.get("volume", 0),
                     "data_source": stock_info.get("data_source", "unknown")
                 }
+                data_source_used = stock_info.get("data_source", "unknown")
             
-            print(f"   ✅ 成功获取 {len(market_data)} 只股票实时数据")
-            return market_data
-            
+            # 验证数据质量
+            if self._validate_market_data(market_data):
+                print(f"   ✅ 成功获取 {len(market_data)} 只股票实时数据 [数据源: {data_source_used}]")
+                return market_data
+            else:
+                print("   ⚠️ 数据验证失败，尝试备用数据源...")
+                
         except Exception as e:
-            print(f"   ⚠️ 实时数据获取失败: {e}")
-            print("   🔄 尝试备用数据源...")
+            print(f"   ⚠️ CN数据源失败: {e}")
+        
+        # 尝试2: 使用 yfinance 数据采集器
+        try:
+            from data_collector import HKStockDataCollector
             
-            # 尝试从最新的历史数据文件加载
-            import glob
-            import os
+            print("   🌐 正在从Yahoo Finance获取...")
+            collector = HKStockDataCollector(self.data_dir)
+            data = collector.get_daily_data(days=30)
             
-            # 查找最新的市场数据文件
-            pattern = f"{self.data_dir}/market_data_*.json"
-            files = glob.glob(pattern)
+            # 转换为内部格式
+            for code, stock_info in data.items():
+                market_data[code] = {
+                    "price": stock_info.get("price", 0),
+                    "ma5": stock_info.get("ma5", stock_info.get("price", 0)),
+                    "ma20": stock_info.get("ma20", stock_info.get("price", 0)),
+                    "rsi": stock_info.get("rsi", 50),
+                    "change_pct": stock_info.get("change_pct", 0),
+                    "volume": stock_info.get("volume", 0),
+                    "data_source": stock_info.get("data_source", "unknown")
+                }
+                data_source_used = stock_info.get("data_source", "unknown")
             
-            if files:
-                # 按修改时间排序，取最新的
-                latest_file = max(files, key=os.path.getmtime)
-                try:
-                    with open(latest_file, 'r') as f:
-                        data = json.load(f)
-                    print(f"   ✅ 使用备用数据: {os.path.basename(latest_file)}")
+            if self._validate_market_data(market_data):
+                print(f"   ✅ 成功获取 {len(market_data)} 只股票实时数据 [数据源: {data_source_used}]")
+                return market_data
+                
+        except Exception as e:
+            print(f"   ⚠️ Yahoo Finance数据源失败: {e}")
+        
+        # 尝试3: 从最新的历史数据文件加载
+        print("   🔄 尝试从缓存加载...")
+        pattern = f"{self.data_dir}/market_data_*.json"
+        files = glob.glob(pattern)
+        
+        if files:
+            latest_file = max(files, key=os.path.getmtime)
+            try:
+                with open(latest_file, 'r') as f:
+                    data = json.load(f)
+                # 检查缓存数据源
+                sample = next(iter(data.values())) if data else {}
+                cache_source = sample.get('data_source', 'unknown')
+                if cache_source == 'mock':
+                    print(f"   ⚠️ 缓存数据源为 mock，拒绝使用!")
+                else:
+                    print(f"   ✅ 使用缓存数据: {os.path.basename(latest_file)}")
                     return data
-                except Exception as e2:
-                    print(f"   ⚠️ 备用数据也失败: {e2}")
+            except Exception as e2:
+                print(f"   ⚠️ 缓存数据也失败: {e2}")
+        
+        # 拒绝使用 mock 数据生成决策
+        print("   ❌ 错误: 无法获取真实数据，拒绝生成决策!")
+        logging.error("数据采集完全失败，无法生成决策 - 需要真实数据!")
+        return {}
+    
+    def _validate_market_data(self, market_data: Dict) -> bool:
+        """验证市场数据质量"""
+        if not market_data:
+            return False
+        
+        # 检查是否有 mock 数据
+        for code, data in market_data.items():
+            source = data.get('data_source', 'unknown')
+            if source in ['mock', 'fallback_mock']:
+                print(f"   ⚠️ {code} 数据源为 mock，拒绝使用!")
+                return False
             
-            # 最后回退：使用默认值（带警告）
-            print("   ⚠️ 警告：使用默认模拟数据（非真实股价！）")
-            return {
-                "00700": {"price": 385, "ma5": 382, "ma20": 375, "rsi": 65, "change_pct": 0, "data_source": "fallback_mock"},
-                "09988": {"price": 85, "ma5": 84, "ma20": 86, "rsi": 45, "change_pct": 0, "data_source": "fallback_mock"},
-                "03690": {"price": 130, "ma5": 128, "ma20": 125, "rsi": 70, "change_pct": 0, "data_source": "fallback_mock"}
-            }
+            # 验证价格合理性
+            price = data.get('price', 0)
+            if price <= 0:
+                print(f"   ⚠️ {code} 价格无效: {price}")
+                return False
+                
+            # 验证涨跌幅合理性 (-20% ~ +20%)
+            change_pct = data.get('change_pct', 0)
+            if change_pct < -20 or change_pct > 20:
+                print(f"   ⚠️ {code} 涨跌幅异常: {change_pct}%")
+                return False
+        
+        return True
 
     def _load_market_data_safe(self) -> dict:
         """安全的数据加载：读缓存 → mock"""
@@ -331,7 +406,30 @@ class LLMEnhancedAgent:
             market_data = self._load_market_data_safe()
         step_duration = time.time() - step_start
         _log_performance("load_market_data", step_duration, {"stocks_count": len(market_data)})
-        print(f"   已获取 {len(market_data)} 只股票数据")
+        
+        # 验证数据源：如果没有有效数据，拒绝生成决策
+        if not market_data or len(market_data) == 0:
+            print("\n❌ 错误: 无法获取市场数据，拒绝生成决策!")
+            print("   原因: 数据采集失败，需要真实数据才能生成决策")
+            return {
+                "error": "no_market_data",
+                "message": "无法获取市场数据，拒绝生成决策",
+                "market_data_source": "failed"
+            }
+        
+        # 检查数据源是否为真实数据
+        sample_data = list(market_data.values())[0]
+        data_source = sample_data.get("data_source", "unknown")
+        if data_source in ["mock", "fallback_mock", "unknown"]:
+            print(f"\n⚠️ 警告: 当前数据源为 '{data_source}'")
+            print("   AI决策需要真实数据，拒绝生成基于mock数据的决策!")
+            return {
+                "error": "mock_data_rejected",
+                "message": "数据源为mock数据，拒绝生成决策",
+                "market_data_source": data_source
+            }
+        
+        print(f"   已获取 {len(market_data)} 只股票数据 [数据源: {data_source}]")
         result["market_data_source"] = (
             list(market_data.values())[0].get("data_source", "unknown")
             if market_data else "empty"
@@ -450,7 +548,99 @@ class LLMEnhancedAgent:
         })
 
         result.update(enhanced)
+        
+        # ========== 保存数据到文件 ==========
+        self._save_analysis_result(result, market_data)
+        
         return result
+    
+    def _save_analysis_result(self, result: Dict, market_data: Dict):
+        """
+        保存分析结果到文件（云端运行必需）
+        
+        保存内容:
+        1. market_data_YYYYMMDD.json - 市场数据
+        2. analysis_result_YYYYMMDD.json - 完整分析结果
+        3. analysis_result_latest.json - 最新结果（方便读取）
+        """
+        today = datetime.now().strftime("%Y%m%d")
+        timestamp = datetime.now().isoformat()
+        
+        # 1. 保存市场数据
+        market_data_file = os.path.join(self.data_dir, f"market_data_{today}.json")
+        try:
+            # 添加时间戳
+            market_data_with_time = {
+                code: {**data, "updated_at": timestamp}
+                for code, data in market_data.items()
+            }
+            with open(market_data_file, "w", encoding="utf-8") as f:
+                json.dump(market_data_with_time, f, indent=2, ensure_ascii=False)
+            
+            # 更新 latest 链接
+            latest_file = os.path.join(self.data_dir, "market_data_latest.json")
+            with open(latest_file, "w", encoding="utf-8") as f:
+                json.dump(market_data_with_time, f, indent=2, ensure_ascii=False)
+            
+            print(f"   ✅ 市场数据已保存：{market_data_file}")
+        except Exception as e:
+            print(f"   ❌ 市场数据保存失败：{e}")
+        
+        # 2. 保存完整分析结果
+        result_file = os.path.join(self.data_dir, f"analysis_result_{today}.json")
+        try:
+            result_with_meta = {
+                "timestamp": timestamp,
+                "date": today,
+                "analysis_result": result,
+                "market_data_summary": {
+                    code: {
+                        "price": data.get("price"),
+                        "change_pct": data.get("change_pct"),
+                        "trend": data.get("trend")
+                    }
+                    for code, data in market_data.items()
+                }
+            }
+            with open(result_file, "w", encoding="utf-8") as f:
+                json.dump(result_with_meta, f, indent=2, ensure_ascii=False)
+            
+            # 更新 latest 链接
+            latest_result = os.path.join(self.data_dir, "analysis_result_latest.json")
+            with open(latest_result, "w", encoding="utf-8") as f:
+                json.dump(result_with_meta, f, indent=2, ensure_ascii=False)
+            
+            print(f"   ✅ 分析结果已保存：{result_file}")
+        except Exception as e:
+            print(f"   ❌ 分析结果保存失败：{e}")
+        
+        # 3. 保存投资决策（简化版，方便推送程序读取）
+        decisions_file = os.path.join(self.data_dir, f"decisions_{today}.json")
+        try:
+            final_decisions = result.get("final_decision", {})
+            decisions_summary = {
+                "timestamp": timestamp,
+                "date": today,
+                "decisions": {
+                    code: {
+                        "action": dec.get("action", "hold"),
+                        "confidence": dec.get("confidence", 0.5),
+                        "reason": dec.get("reason", "")[:100]  # 限制长度
+                    }
+                    for code, dec in final_decisions.items()
+                },
+                "world_model": {
+                    "enabled": result.get("prediction", {}).get("enabled", False),
+                    "recommendation": result.get("prediction", {}).get("recommendation", ""),
+                    "confidence": result.get("prediction", {}).get("confidence", 0.0)
+                } if result.get("prediction") else {}
+            }
+            with open(decisions_file, "w", encoding="utf-8") as f:
+                json.dump(decisions_summary, f, indent=2, ensure_ascii=False)
+            
+            print(f"   ✅ 投资决策已保存：{decisions_file}")
+        except Exception as e:
+            print(f"   ❌ 投资决策保存失败：{e}")
     
     def _base_strategy(self, market_data: Dict, prediction: Optional[Dict]) -> Dict:
         """
